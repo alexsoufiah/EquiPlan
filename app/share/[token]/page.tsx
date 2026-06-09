@@ -8,29 +8,200 @@ interface Team { id: number; name: string; }
 interface Entry {
   id: number; date: string; start_time: string; end_time: string;
   title: string; phase: string; pruefungs_id?: string; notes?: string;
-  arena_name?: string; speaker_name?: string; speaker_role?: string; speaker_color?: string;
+  arena_id?: number; arena_name?: string;
+  speaker_name?: string; speaker_role?: string; speaker_color?: string;
   teams: Team[];
 }
 interface Tournament { id: number; name: string; location?: string; start_date?: string; end_date?: string; }
 
-const PHASE_COLORS: Record<string, { bg: string; border: string; text: string; dot: string }> = {
-  aufbau:    { bg: "bg-orange-900/40",  border: "border-orange-500/50",  text: "text-orange-300",  dot: "bg-orange-400" },
-  wettkampf: { bg: "bg-blue-900/40",    border: "border-blue-500/50",    text: "text-blue-300",    dot: "bg-blue-400" },
-  abbau:     { bg: "bg-purple-900/40",  border: "border-purple-500/50",  text: "text-purple-300",  dot: "bg-purple-400" },
-  pause:     { bg: "bg-gray-800/40",    border: "border-gray-600/50",    text: "text-gray-400",    dot: "bg-gray-500" },
+// ── Phasen-Farben ─────────────────────────────────────────────────────────────
+// Liste-Ansicht (hell = besser lesbar auf dunklem Hintergrund)
+const PHASE_LIST: Record<string, { bg: string; border: string; text: string; label: string; dot: string }> = {
+  aufbau:    { bg: "bg-orange-900",  border: "border-orange-500",  text: "text-orange-100",  label: "Aufbau",    dot: "bg-orange-400" },
+  wettkampf: { bg: "bg-blue-900",    border: "border-blue-500",    text: "text-blue-100",    label: "Wettkampf", dot: "bg-blue-400" },
+  abbau:     { bg: "bg-purple-900",  border: "border-purple-500",  text: "text-purple-100",  label: "Abbau",     dot: "bg-purple-400" },
+  pause:     { bg: "bg-gray-800",    border: "border-gray-600",    text: "text-gray-200",    label: "Pause",     dot: "bg-gray-400" },
 };
-const PHASE_LABELS: Record<string, string> = { aufbau: "Aufbau", wettkampf: "Wettkampf", abbau: "Abbau", pause: "Pause" };
 
-function now() { return new Date(); }
+// Timeline-Ansicht
+const PHASE_TL: Record<string, { bg: string; border: string; text: string }> = {
+  aufbau:    { bg: "bg-orange-800", border: "border-l-orange-400", text: "text-orange-100" },
+  wettkampf: { bg: "bg-blue-800",   border: "border-l-blue-400",   text: "text-blue-100" },
+  abbau:     { bg: "bg-purple-800", border: "border-l-purple-400", text: "text-purple-100" },
+  pause:     { bg: "bg-gray-700",   border: "border-l-gray-400",   text: "text-gray-100" },
+};
+
+// ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+function nowDate() { return new Date(); }
 function isRunning(e: Entry) {
-  const n = now();
+  const n = nowDate();
   return new Date(`${e.date}T${e.start_time}`) <= n && new Date(`${e.date}T${e.end_time}`) > n;
 }
-function isDone(e: Entry) { return new Date(`${e.date}T${e.end_time}`) < now(); }
-function formatDate(d: string) {
+function isDone(e: Entry) { return new Date(`${e.date}T${e.end_time}`) < nowDate(); }
+function formatDateShort(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "short" });
 }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function toMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
 
+const PX_PER_HOUR = 96;
+const PX_PER_MIN = PX_PER_HOUR / 60;
+
+// ── Timeline-Komponente (dunkel) ──────────────────────────────────────────────
+function ShareTimeline({ entries, selectedDate }: { entries: Entry[]; selectedDate: string }) {
+  const [nowTs, setNowTs] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Plätze sammeln
+  const arenaMap = new Map<number | null, string>();
+  for (const e of entries) {
+    if (e.arena_id != null) arenaMap.set(e.arena_id, e.arena_name ?? `Platz ${e.arena_id}`);
+    else arenaMap.set(null, "– Kein Platz –");
+  }
+  const arenaCols: { id: number | null; name: string }[] = [];
+  const sortedKeys = [...arenaMap.keys()].sort((a, b) => a == null ? 1 : b == null ? -1 : (a as number) - (b as number));
+  for (const k of sortedKeys) arenaCols.push({ id: k, name: arenaMap.get(k)! });
+
+  // Zeitbereich
+  let dayStart = 7 * 60;
+  let dayEnd = 21 * 60;
+  if (entries.length > 0) {
+    const starts = entries.map(e => toMinutes(e.start_time));
+    const ends = entries.map(e => toMinutes(e.end_time));
+    dayStart = Math.floor(Math.min(...starts) / 60) * 60;
+    dayEnd = Math.ceil(Math.max(...ends) / 60) * 60;
+    dayStart = Math.max(0, dayStart - 30);
+    dayEnd = Math.min(24 * 60, dayEnd + 30);
+  }
+  const totalMinutes = dayEnd - dayStart;
+  const totalHeight = totalMinutes * PX_PER_MIN;
+
+  const hourLines: number[] = [];
+  for (let m = Math.ceil(dayStart / 60) * 60; m <= dayEnd; m += 60) hourLines.push(m);
+
+  const isToday = selectedDate === todayStr();
+  const nowMinutes = nowTs.getHours() * 60 + nowTs.getMinutes();
+  const showNowLine = isToday && nowMinutes >= dayStart && nowMinutes <= dayEnd;
+  const nowTop = (nowMinutes - dayStart) * PX_PER_MIN;
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-white/10 bg-gray-900/60">
+      <div className="flex min-w-max">
+        {/* Zeitachse */}
+        <div className="w-14 shrink-0 relative" style={{ height: totalHeight + 40 }}>
+          <div className="h-10 border-b border-white/10" />
+          <div className="relative" style={{ height: totalHeight }}>
+            {hourLines.map(m => (
+              <div key={m} className="absolute left-0 right-0 flex items-center" style={{ top: (m - dayStart) * PX_PER_MIN }}>
+                <span className="text-[10px] text-gray-500 px-1.5 font-mono leading-none">
+                  {String(Math.floor(m / 60)).padStart(2, "0")}:00
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Spalten */}
+        {arenaCols.map(arena => {
+          const col = entries.filter(e => (e.arena_id ?? null) === arena.id);
+          return (
+            <div key={String(arena.id)} className="flex-1 min-w-[180px] border-l border-white/10">
+              {/* Header */}
+              <div className="h-10 flex items-center justify-center border-b border-white/10 bg-indigo-900/30 px-2">
+                <span className="text-xs font-semibold text-indigo-200 truncate text-center">📍 {arena.name}</span>
+              </div>
+              {/* Inhalt */}
+              <div className="relative" style={{ height: totalHeight }}>
+                {hourLines.map(m => (
+                  <div key={m} className="absolute left-0 right-0 border-t border-white/5"
+                    style={{ top: (m - dayStart) * PX_PER_MIN }} />
+                ))}
+                {/* Jetzt-Linie */}
+                {showNowLine && (
+                  <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: nowTop }}>
+                    <div className="h-0.5 bg-red-400 w-full shadow-[0_0_6px_rgba(248,113,113,0.8)]" />
+                    <div className="absolute -top-1.5 -left-1 w-3 h-3 bg-red-400 rounded-full shadow-[0_0_8px_rgba(248,113,113,0.9)]" />
+                  </div>
+                )}
+                {/* Einträge */}
+                {col.map(entry => {
+                  const startMin = toMinutes(entry.start_time);
+                  const endMin = toMinutes(entry.end_time);
+                  const duration = Math.max(endMin - startMin, 15);
+                  const top = (startMin - dayStart) * PX_PER_MIN;
+                  const height = Math.max(duration * PX_PER_MIN, 28);
+                  const done = isDone(entry);
+                  const running = isRunning(entry);
+                  const tl = PHASE_TL[entry.phase] ?? PHASE_TL.pause;
+
+                  let cls = `absolute left-1 right-1 rounded-lg border-l-4 px-1.5 py-1 overflow-hidden z-10 shadow-sm ${tl.bg} ${tl.border} ${tl.text}`;
+                  if (done) cls += " opacity-35";
+                  if (running) cls += " ring-2 ring-violet-400 shadow-[0_0_14px_rgba(167,139,250,0.6)]";
+
+                  return (
+                    <div key={entry.id} className={cls} style={{ top, height }}
+                      title={`${entry.pruefungs_id ? entry.pruefungs_id + " · " : ""}${entry.title}\n${entry.start_time}–${entry.end_time}${entry.teams?.length ? "\n" + entry.teams.map(t => t.name).join(", ") : ""}`}>
+                      {running && (
+                        <div className="absolute top-0.5 right-0.5">
+                          <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-ping block" />
+                        </div>
+                      )}
+                      <div className="font-semibold leading-tight truncate" style={{ fontSize: height < 36 ? "9px" : "11px" }}>
+                        {entry.pruefungs_id && <span className="opacity-60 mr-1">{entry.pruefungs_id}</span>}
+                        {entry.title}
+                      </div>
+                      {height >= 36 && (
+                        <div className="font-mono opacity-80" style={{ fontSize: "9px" }}>{entry.start_time}–{entry.end_time}</div>
+                      )}
+                      {height >= 52 && entry.teams?.length > 0 && (
+                        <div className="truncate opacity-75" style={{ fontSize: "9px" }}>
+                          👥 {entry.teams.map(t => t.name).join(", ")}
+                        </div>
+                      )}
+                      {height >= 64 && entry.speaker_name && (
+                        <div className="truncate" style={{ fontSize: "9px" }}>
+                          <span className="rounded px-1 text-white" style={{ backgroundColor: entry.speaker_color || "#4B5563" }}>
+                            🎙 {entry.speaker_name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legende */}
+      <div className="border-t border-white/10 px-4 py-2 flex flex-wrap gap-3 text-xs text-gray-400 bg-black/20">
+        {Object.entries(PHASE_LIST).map(([k, v]) => (
+          <span key={k} className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-sm border-l-2 ${PHASE_TL[k].border} ${PHASE_TL[k].bg}`} />
+            <span className="text-gray-300">{v.label}</span>
+          </span>
+        ))}
+        {showNowLine && (
+          <span className="flex items-center gap-1.5 text-red-400 font-semibold">
+            <span className="w-2.5 h-0.5 bg-red-400 inline-block rounded" /> Jetzt
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Hauptseite ────────────────────────────────────────────────────────────────
 export default function SharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const [tournament, setTournament] = useState<Tournament | null>(null);
@@ -40,49 +211,41 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const [selectedArena, setSelectedArena] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [error, setError] = useState("");
-  const [tick, setTick] = useState(0);
   const [visibleIds, setVisibleIds] = useState<Set<number>>(new Set());
-  const listRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const currentRef = useRef<HTMLDivElement>(null);
 
-  // Clock tick every 30s to update running/done state
+  // Tick alle 30s für LIVE/done-Update
+  const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick(x => x + 1), 30000);
     return () => clearInterval(t);
   }, []);
 
   const load = useCallback(async (arenaId?: number | null, date?: string) => {
-    const params = new URLSearchParams();
-    if (date) params.set("date", date);
-    if (arenaId) params.set("arena_id", String(arenaId));
-    const res = await fetch(`/api/public/${token}?${params}`);
+    const p = new URLSearchParams();
+    if (date) p.set("date", date);
+    if (arenaId) p.set("arena_id", String(arenaId));
+    const res = await fetch(`/api/public/${token}?${p}`);
     if (!res.ok) { setError("Link ungültig oder abgelaufen."); return; }
     const data = await res.json();
     setTournament(data.tournament);
     setArenas(data.arenas);
     setDates(data.dates);
     if (!date && data.dates.length > 0) {
-      const today = new Date().toISOString().slice(0, 10);
-      setSelectedDate(data.dates.includes(today) ? today : data.dates[0]);
+      const t = todayStr();
+      setSelectedDate(data.dates.includes(t) ? t : data.dates[0]);
     }
-    // Animate entries in
-    const newIds = new Set<number>();
-    setVisibleIds(newIds);
-    setTimeout(() => {
-      const allIds = new Set((data.entries as Entry[]).map(e => e.id));
-      setVisibleIds(allIds);
-    }, 50);
+    setVisibleIds(new Set());
+    setTimeout(() => setVisibleIds(new Set((data.entries as Entry[]).map(e => e.id))), 50);
     setEntries(data.entries);
   }, [token]);
 
   useEffect(() => { load(null, ""); }, [load]);
   useEffect(() => { if (selectedDate) load(selectedArena, selectedDate); }, [selectedArena, selectedDate, load]);
 
-  // Auto-scroll to current/next event
   useEffect(() => {
-    if (currentRef.current) {
-      currentRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+    if (currentRef.current) currentRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [entries]);
 
   if (error) return (
@@ -108,31 +271,42 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const nextIdx = entries.findIndex(e => !isDone(e) && !isRunning(e));
   const dateIdx = dates.indexOf(selectedDate);
 
+  // Sticky-Offset berechnen
+  const hasDates = dates.length > 1;
+  const hasArenas = arenas.length > 1;
+  const arenaTop = hasDates ? 108 : 64;
+
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-indigo-900 via-violet-900 to-indigo-900 border-b border-white/10 sticky top-0 z-20 backdrop-blur">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+
+      {/* ── Header ── */}
+      <header className="bg-gradient-to-r from-indigo-900 via-violet-900 to-indigo-900 border-b border-white/15 sticky top-0 z-30 backdrop-blur">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
           <img src="/logo.png" alt="EquiPlan" className="w-8 h-8 object-contain opacity-90" />
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-base leading-tight truncate">
-              <span className="text-white">Equi</span><span className="text-violet-400">Plan</span>
+              <span className="text-white">Equi</span><span className="text-violet-300">Plan</span>
               <span className="text-gray-400 font-normal mx-2">·</span>
               <span className="text-white">{tournament.name}</span>
             </h1>
-            <div className="flex items-center gap-3 text-xs text-indigo-300 mt-0.5">
+            <div className="flex items-center gap-3 text-xs text-indigo-200 mt-0.5">
               {tournament.location && <span className="flex items-center gap-1"><MapPin size={10} />{tournament.location}</span>}
-              {tournament.start_date && <span className="flex items-center gap-1"><Calendar size={10} />{tournament.start_date}{tournament.end_date && tournament.end_date !== tournament.start_date ? ` – ${tournament.end_date}` : ""}</span>}
+              {tournament.start_date && (
+                <span className="flex items-center gap-1">
+                  <Calendar size={10} />
+                  {tournament.start_date}{tournament.end_date && tournament.end_date !== tournament.start_date ? ` – ${tournament.end_date}` : ""}
+                </span>
+              )}
             </div>
           </div>
           <LiveClock />
         </div>
       </header>
 
-      {/* Date selector */}
-      {dates.length > 1 && (
-        <div className="bg-gray-900/80 border-b border-white/5 sticky top-[64px] z-10">
-          <div className="max-w-3xl mx-auto px-4 py-2 flex items-center gap-2">
+      {/* ── Datum-Auswahl ── */}
+      {hasDates && (
+        <div className="bg-gray-900/90 border-b border-white/10 sticky z-20" style={{ top: 64 }}>
+          <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2">
             <button onClick={() => dateIdx > 0 && setSelectedDate(dates[dateIdx - 1])} disabled={dateIdx <= 0}
               className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-30 transition">
               <ChevronLeft size={16} />
@@ -143,9 +317,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                     d === selectedDate
                       ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/50"
-                      : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                      : "bg-white/8 text-gray-300 hover:bg-white/15 hover:text-white border border-white/10"
                   }`}>
-                  {formatDate(d)}
+                  {formatDateShort(d)}
                 </button>
               ))}
             </div>
@@ -157,129 +331,150 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
         </div>
       )}
 
-      {/* Arena selector */}
-      {arenas.length > 1 && (
-        <div className="bg-gray-900/60 border-b border-white/5 sticky top-[64px] z-10" style={{ top: dates.length > 1 ? "112px" : "64px" }}>
-          <div className="max-w-3xl mx-auto px-4 py-2 flex gap-2 overflow-x-auto hide-scrollbar">
-            <button onClick={() => setSelectedArena(null)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                selectedArena === null
-                  ? "bg-violet-600 text-white shadow-lg shadow-violet-900/50 scale-105"
-                  : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-              }`}>
-              Alle Plätze
-            </button>
-            {arenas.map(a => (
-              <button key={a.id} onClick={() => setSelectedArena(a.id === selectedArena ? null : a.id)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                  selectedArena === a.id
-                    ? "bg-violet-600 text-white shadow-lg shadow-violet-900/50 scale-105"
-                    : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+      {/* ── Platz-Filter + Ansicht-Toggle ── */}
+      {hasArenas && (
+        <div className="bg-gray-900/80 border-b border-white/10 sticky z-20" style={{ top: arenaTop }}>
+          <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
+            <div className="flex gap-1.5 overflow-x-auto hide-scrollbar flex-1">
+              <button onClick={() => setSelectedArena(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                  selectedArena === null
+                    ? "bg-violet-600 text-white shadow-lg shadow-violet-900/50"
+                    : "bg-white/8 text-gray-300 hover:bg-white/15 hover:text-white border border-white/10"
                 }`}>
-                {a.name}
+                Alle Plätze
               </button>
-            ))}
+              {arenas.map(a => (
+                <button key={a.id} onClick={() => setSelectedArena(a.id === selectedArena ? null : a.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                    selectedArena === a.id
+                      ? "bg-violet-600 text-white shadow-lg shadow-violet-900/50"
+                      : "bg-white/8 text-gray-300 hover:bg-white/15 hover:text-white border border-white/10"
+                  }`}>
+                  {a.name}
+                </button>
+              ))}
+            </div>
+            {/* Ansicht-Toggle */}
+            <div className="flex gap-0.5 p-0.5 bg-white/8 border border-white/10 rounded-lg shrink-0">
+              <button onClick={() => setViewMode("list")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${viewMode === "list" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"}`}>
+                ≡ Liste
+              </button>
+              <button onClick={() => setViewMode("timeline")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${viewMode === "timeline" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"}`}>
+                ▦ Zeitleiste
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Entry list */}
-      <div className="flex-1 overflow-y-auto" ref={listRef}>
-        <div className="max-w-3xl mx-auto px-4 py-4 space-y-2 pb-16">
+      {/* ── Inhalt ── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-6xl mx-auto px-4 py-4 pb-20">
+
           {entries.length === 0 && (
-            <div className="text-center py-20 text-gray-600">
+            <div className="text-center py-20 text-gray-500">
               <Clock size={40} className="mx-auto mb-3 opacity-30" />
               <p>Keine Einträge für diese Auswahl.</p>
             </div>
           )}
-          {entries.map((e, i) => {
-            const running = isRunning(e);
-            const done = isDone(e);
-            const isNext = !running && !done && i === nextIdx;
-            const phase = PHASE_COLORS[e.phase] ?? PHASE_COLORS.pause;
-            const isRef = running || (currentIdx === -1 && isNext);
 
-            return (
-              <div
-                key={e.id}
-                ref={isRef ? currentRef : undefined}
-                className={`
-                  rounded-xl border p-3.5 transition-all duration-500
-                  ${visibleIds.has(e.id) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}
-                  ${running
-                    ? "border-violet-500/70 bg-violet-900/30 shadow-lg shadow-violet-900/30 ring-1 ring-violet-500/30"
-                    : done
-                      ? "border-white/5 bg-white/3 opacity-40"
-                      : isNext
-                        ? `${phase.border} ${phase.bg} shadow-md`
-                        : `${phase.border} ${phase.bg}`
-                  }
-                `}
-                style={{ transitionDelay: `${Math.min(i * 40, 400)}ms` }}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Time column */}
-                  <div className="shrink-0 text-right w-16">
-                    <p className={`text-sm font-mono font-bold ${running ? "text-violet-300" : done ? "text-gray-600" : "text-gray-300"}`}>
-                      {e.start_time}
-                    </p>
-                    <p className={`text-xs font-mono ${done ? "text-gray-700" : "text-gray-500"}`}>{e.end_time}</p>
-                  </div>
+          {entries.length > 0 && viewMode === "timeline" && (
+            <ShareTimeline entries={entries} selectedDate={selectedDate} />
+          )}
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {running && (
-                        <span className="flex items-center gap-1 text-xs font-bold text-violet-300 bg-violet-500/20 px-2 py-0.5 rounded-full animate-pulse">
-                          <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-ping" />
-                          LIVE
-                        </span>
-                      )}
-                      {isNext && !running && (
-                        <span className="text-xs font-semibold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full">
-                          Nächstes
-                        </span>
-                      )}
-                      <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${phase.text} bg-black/20`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${phase.dot}`} />
-                        {PHASE_LABELS[e.phase] ?? e.phase}
-                      </span>
+          {entries.length > 0 && viewMode === "list" && (
+            <div className="space-y-2">
+              {entries.map((e, i) => {
+                const running = isRunning(e);
+                const done = isDone(e);
+                const isNext = !running && !done && i === nextIdx;
+                const phase = PHASE_LIST[e.phase] ?? PHASE_LIST.pause;
+                const isRef = running || (currentIdx === -1 && isNext);
+
+                return (
+                  <div
+                    key={e.id}
+                    ref={isRef ? currentRef : undefined}
+                    className={`
+                      rounded-xl border p-4 transition-all duration-500
+                      ${visibleIds.has(e.id) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}
+                      ${running
+                        ? "border-violet-400 bg-violet-800 shadow-lg shadow-violet-900/50 ring-1 ring-violet-400/60"
+                        : done
+                          ? "border-white/5 bg-white/3 opacity-35"
+                          : `${phase.border} ${phase.bg}`
+                      }
+                    `}
+                    style={{ transitionDelay: `${Math.min(i * 40, 400)}ms` }}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Zeit */}
+                      <div className="shrink-0 text-right w-16">
+                        <p className={`text-sm font-mono font-bold ${running ? "text-violet-200" : done ? "text-gray-600" : "text-white"}`}>
+                          {e.start_time}
+                        </p>
+                        <p className={`text-xs font-mono ${done ? "text-gray-700" : "text-gray-400"}`}>{e.end_time}</p>
+                      </div>
+
+                      {/* Inhalt */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          {running && (
+                            <span className="flex items-center gap-1.5 text-xs font-bold text-white bg-violet-500/40 border border-violet-400/50 px-2 py-0.5 rounded-full animate-pulse">
+                              <span className="w-1.5 h-1.5 bg-violet-300 rounded-full animate-ping" />
+                              LIVE
+                            </span>
+                          )}
+                          {isNext && !running && (
+                            <span className="text-xs font-semibold text-indigo-200 bg-indigo-500/30 border border-indigo-400/40 px-2 py-0.5 rounded-full">
+                              Nächstes
+                            </span>
+                          )}
+                          <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${phase.text} bg-black/25 border border-white/10`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${phase.dot}`} />
+                            {phase.label}
+                          </span>
+                        </div>
+
+                        <p className={`font-semibold leading-snug text-base ${done ? "text-gray-600 line-through" : running ? "text-white" : "text-gray-100"}`}>
+                          {e.pruefungs_id && <span className="text-gray-500 font-normal text-sm mr-1.5">{e.pruefungs_id}</span>}
+                          {e.title}
+                        </p>
+
+                        <div className="flex flex-wrap gap-2 mt-1.5">
+                          {e.arena_name && (
+                            <span className="flex items-center gap-1 text-xs text-gray-300 bg-white/8 border border-white/10 rounded px-2 py-0.5">
+                              <MapPin size={9} />{e.arena_name}
+                            </span>
+                          )}
+                          {e.teams?.map(t => (
+                            <span key={t.id} className="text-xs text-gray-300 bg-white/8 border border-white/10 rounded px-2 py-0.5">👥 {t.name}</span>
+                          ))}
+                          {e.speaker_name && (
+                            <span className="rounded px-2 py-0.5 text-white text-xs font-medium" style={{ backgroundColor: e.speaker_color || "#4B5563" }}>
+                              🎙 {e.speaker_name}
+                            </span>
+                          )}
+                        </div>
+                        {e.notes && <p className="text-xs text-gray-400 mt-1.5 italic border-t border-white/8 pt-1.5">{e.notes}</p>}
+                      </div>
                     </div>
-
-                    <p className={`font-semibold mt-1 leading-snug ${done ? "text-gray-600 line-through" : running ? "text-white" : "text-gray-100"}`}>
-                      {e.pruefungs_id && <span className="text-gray-500 font-normal text-sm mr-1.5">{e.pruefungs_id}</span>}
-                      {e.title}
-                    </p>
-
-                    <div className="flex flex-wrap gap-2 mt-1.5 text-xs">
-                      {e.arena_name && (
-                        <span className="flex items-center gap-1 text-gray-400">
-                          <MapPin size={10} />{e.arena_name}
-                        </span>
-                      )}
-                      {e.teams?.map(t => (
-                        <span key={t.id} className="text-gray-400">👥 {t.name}</span>
-                      ))}
-                      {e.speaker_name && (
-                        <span className="rounded px-1.5 py-0.5 text-white text-xs" style={{ backgroundColor: e.speaker_color || "#4B5563" }}>
-                          🎙 {e.speaker_name}
-                        </span>
-                      )}
-                    </div>
-                    {e.notes && <p className="text-xs text-gray-500 mt-1 italic">{e.notes}</p>}
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Scroll-to-current FAB */}
-      {(currentIdx >= 0 || nextIdx >= 0) && (
+      {/* ── Scroll-zu-aktuell FAB ── */}
+      {viewMode === "list" && (currentIdx >= 0 || nextIdx >= 0) && (
         <button
           onClick={() => currentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
-          className="fixed bottom-6 right-6 bg-violet-600 hover:bg-violet-500 text-white rounded-full px-4 py-2.5 shadow-lg shadow-violet-900/50 text-sm font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95">
+          className="fixed bottom-6 right-6 bg-violet-600 hover:bg-violet-500 text-white rounded-full px-4 py-2.5 shadow-lg shadow-violet-900/60 text-sm font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95 border border-violet-400/40">
           <Clock size={14} />
           {currentIdx >= 0 ? "Aktuell" : "Nächstes"}
         </button>
@@ -289,6 +484,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .bg-white\\/3 { background-color: rgb(255 255 255 / 0.03); }
+        .bg-white\\/8 { background-color: rgb(255 255 255 / 0.08); }
       `}</style>
     </div>
   );
@@ -302,5 +498,5 @@ function LiveClock() {
     const t = setInterval(update, 1000);
     return () => clearInterval(t);
   }, []);
-  return <span className="text-xs font-mono text-indigo-300 bg-white/5 px-2 py-1 rounded-lg tabular-nums">{time}</span>;
+  return <span className="text-sm font-mono font-semibold text-white bg-white/10 border border-white/15 px-2.5 py-1 rounded-lg tabular-nums">{time}</span>;
 }

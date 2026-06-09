@@ -27,11 +27,14 @@ function formatDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 }
 function addDays(date: string, n: number) {
-  const d = new Date(date + "T00:00:00");
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = date.split("-").map(Number);
+  const nd = new Date(y, m - 1, d + n); // lokale Zeit, kein UTC
+  return `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, "0")}-${String(nd.getDate()).padStart(2, "0")}`;
 }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 async function registerPush() {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
@@ -47,7 +50,9 @@ async function registerPush() {
   return sub;
 }
 
+// ── Welcome + Login ──────────────────────────────────────────────────────────
 function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
+  const [screen, setScreen] = useState<"welcome" | "login" | "contact">("welcome");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -67,33 +72,315 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 to-violet-700">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
-        <div className="text-center mb-6">
-          <img src="/logo.png" alt="EquiPlan" className="w-24 h-24 mx-auto mb-2 object-contain" />
-          <h1 className="text-2xl font-bold text-gray-800">
-            <span className="text-indigo-900">Equi</span><span className="text-violet-600">Plan</span>
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">Veranstaltungsplanung</p>
-        </div>
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Passwort</label>
-            <input
-              type="password" value={password} onChange={e => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Zugangspasswort eingeben" autoFocus
-            />
+    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 flex flex-col items-center justify-center p-4 overflow-hidden relative">
+      {/* Animated background orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-24 w-80 h-80 bg-violet-500/15 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 -right-24 w-80 h-80 bg-indigo-400/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1.5s" }} />
+        <div className="absolute top-3/4 left-1/3 w-48 h-48 bg-violet-600/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: "3s" }} />
+      </div>
+
+      <div className="relative w-full max-w-sm">
+        {screen === "welcome" ? (
+          <div className="text-center space-y-7 animate-fade-in">
+            {/* Logo + Brand */}
+            <div className="space-y-3">
+              <img src="/logo.png" alt="EquiPlan" className="w-24 h-24 mx-auto object-contain drop-shadow-2xl" />
+              <div>
+                <h1 className="text-5xl font-bold text-white tracking-tight">
+                  Equi<span className="text-violet-400">Plan</span>
+                </h1>
+                <p className="text-indigo-200/80 mt-2 text-base font-light tracking-wide">
+                  Turnierplanung. Einfach. Live.
+                </p>
+              </div>
+            </div>
+
+            {/* Tagline */}
+            <p className="text-indigo-200 text-sm leading-relaxed px-4">
+              Der digitale Zeitplan für Pferdesport-Veranstaltungen —
+              alle Beteiligten, alle Plätze, immer aktuell.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={() => setScreen("login")}
+                className="w-full bg-white text-indigo-900 font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-900/40 hover:bg-indigo-50 transition text-base active:scale-95">
+                Anmelden
+              </button>
+              <button
+                onClick={() => setScreen("contact")}
+                className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 rounded-xl border border-white/20 transition text-sm active:scale-95">
+                Interesse? Jetzt anfragen
+              </button>
+            </div>
           </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button type="submit" disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-50">
-            {loading ? "..." : "Anmelden"}
-          </button>
-        </form>
+
+        ) : screen === "contact" ? (
+          <ContactForm onBack={() => setScreen("welcome")} />
+
+        ) : (
+          <div className="animate-fade-in">
+            <button onClick={() => setScreen("welcome")} className="text-indigo-300 hover:text-white text-sm mb-5 flex items-center gap-1 transition">
+              <ChevronLeft size={16} /> Zurück
+            </button>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-7">
+              <div className="text-center mb-5">
+                <img src="/logo.png" alt="EquiPlan" className="w-12 h-12 mx-auto mb-3 object-contain" />
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                  <span className="text-indigo-900 dark:text-indigo-400">Equi</span><span className="text-violet-600">Plan</span>
+                </h2>
+              </div>
+              <form onSubmit={submit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Passwort</label>
+                  <input
+                    type="password" value={password} onChange={e => setPassword(e.target.value)}
+                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    placeholder="Zugangspasswort eingeben" autoFocus
+                  />
+                </div>
+                {error && <p className="text-red-500 text-sm">{error}</p>}
+                <button type="submit" disabled={loading}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition disabled:opacity-50">
+                  {loading ? "Anmelden..." : "Anmelden"}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.4s ease both; }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Contact Form ─────────────────────────────────────────────────────────────
+function ContactForm({ onBack }: { onBack: () => void }) {
+  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name || !form.email) return;
+    setStatus("sending");
+    const res = await fetch("/api/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    setStatus(res.ok ? "done" : "error");
+  }
+
+  return (
+    <div className="animate-fade-in">
+      <button onClick={onBack} className="text-indigo-300 hover:text-white text-sm mb-5 flex items-center gap-1 transition">
+        <ChevronLeft size={16} /> Zurück
+      </button>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-7">
+        {status === "done" ? (
+          <div className="text-center py-4 space-y-3">
+            <div className="text-5xl">✅</div>
+            <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg">Nachricht gesendet!</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Wir melden uns so schnell wie möglich bei dir.</p>
+            <button onClick={onBack} className="mt-2 text-indigo-600 dark:text-indigo-400 text-sm hover:underline">Zurück zur Startseite</button>
+          </div>
+        ) : (
+          <>
+            <div className="mb-5">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Interesse an EquiPlan?</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 leading-relaxed">
+                Hinterlasse deine Kontaktdaten – wir zeigen dir wie EquiPlan deine Veranstaltung vereinfacht.
+              </p>
+            </div>
+            <form onSubmit={submit} className="space-y-3">
+              <input
+                value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-gray-400"
+                placeholder="Dein Name *" required autoFocus
+              />
+              <input
+                type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-gray-400"
+                placeholder="E-Mail-Adresse *" required
+              />
+              <textarea
+                value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-gray-400 resize-none"
+                placeholder="Kurze Nachricht (optional) – z.B. Veranstaltungsort, Turniergröße…"
+                rows={3}
+              />
+              {status === "error" && <p className="text-red-500 text-sm">Fehler beim Senden. Bitte versuche es erneut.</p>}
+              <button type="submit" disabled={status === "sending"}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition disabled:opacity-50 text-sm">
+                {status === "sending" ? "Wird gesendet…" : "Anfrage absenden →"}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
+}
+
+// ── Onboarding Overlay ────────────────────────────────────────────────────────
+const ONBOARDING_KEY = "equiplan-onboarded-v1";
+
+function OnboardingOverlay({ session, onDone }: { session: AppSession; onDone: () => void }) {
+  const [step, setStep] = useState(0);
+
+  const steps = getOnboardingSteps(session);
+  const isLast = step === steps.length - 1;
+
+  function finish() { localStorage.setItem(ONBOARDING_KEY + "-" + session.role, "1"); onDone(); }
+  function next() { isLast ? finish() : setStep(s => s + 1); }
+  function prev() { setStep(s => s - 1); }
+
+  const s = steps[step];
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        {/* Progress bar */}
+        <div className="h-1 bg-gray-100 dark:bg-gray-700">
+          <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
+        </div>
+
+        <div className="p-6">
+          <div className="text-4xl mb-3 text-center">{s.icon}</div>
+          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 text-center">{s.title}</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-2 text-center leading-relaxed">{s.body}</p>
+
+          {s.visual && (
+            <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded-xl p-3">
+              {s.visual}
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 pb-6 flex items-center justify-between gap-3">
+          <button onClick={finish} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">
+            Überspringen
+          </button>
+          <div className="flex items-center gap-2">
+            {step > 0 && (
+              <button onClick={prev} className="px-3 py-2 border border-gray-200 dark:border-gray-600 dark:text-gray-200 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                Zurück
+              </button>
+            )}
+            <button onClick={next} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">
+              {isLast ? "Los geht's! 🎉" : "Weiter →"}
+            </button>
+          </div>
+        </div>
+
+        {/* Step dots */}
+        <div className="pb-4 flex justify-center gap-1.5">
+          {steps.map((_, i) => (
+            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === step ? "bg-indigo-600 w-4" : "bg-gray-300 dark:bg-gray-600"}`} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getOnboardingSteps(session: AppSession) {
+  const base = [
+    {
+      icon: "👋",
+      title: `Willkommen bei EquiPlan${session.teamName ? `, ${session.teamName}` : session.speakerName ? `, ${session.speakerName}` : ""}!`,
+      body: "EquiPlan ist dein internes Tool für die Turnierplanung. Hier siehst du den gesamten Tagesablauf auf einen Blick.",
+      visual: null,
+    },
+    {
+      icon: "📅",
+      title: "Tage wechseln",
+      body: "Mit den Pfeilen ◀ ▶ blätterst du zwischen den Tagen. Mit \"Heute\" springst du direkt auf den aktuellen Tag. Du kannst auch das Datum direkt anklicken.",
+      visual: (
+        <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-2 text-sm">
+          <span className="text-indigo-400 font-bold text-lg">‹</span>
+          <span className="text-gray-700 dark:text-gray-200 font-medium">Mittwoch, 4. Jun</span>
+          <span className="text-indigo-400 font-bold text-lg">›</span>
+        </div>
+      ),
+    },
+    {
+      icon: "🏟️",
+      title: "Plätze & Phasen",
+      body: "Jeder Eintrag hat einen Platz und eine Phase. Farben helfen dir schnell zu sehen was läuft: 🟠 Aufbau · 🔵 Wettkampf · 🟣 Abbau",
+      visual: (
+        <div className="space-y-1.5 text-xs">
+          {[["🟠","Aufbau","border-orange-300 bg-orange-50"],["🔵","Wettkampf","border-blue-300 bg-blue-50"],["🟣","Abbau","border-purple-300 bg-purple-50"]].map(([e,l,c]) => (
+            <div key={l} className={`flex items-center gap-2 rounded px-2 py-1 border-l-4 ${c}`}>
+              <span>{e}</span><span className="font-medium text-gray-700">{l}</span>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    ...getRoleSteps(session),
+    {
+      icon: "🔔",
+      title: "Benachrichtigungen",
+      body: "Aktiviere Push-Benachrichtigungen mit dem 🔔-Symbol oben rechts. Du wirst sofort informiert wenn der Plan geändert wird.",
+      visual: null,
+    },
+  ];
+  return base;
+}
+
+function getRoleSteps(session: AppSession) {
+  if (session.role === "admin") {
+    return [{
+      icon: "⚙️",
+      title: "Du bist Administrator",
+      body: "Mit dem ⚙️-Button oben rechts öffnest du den Admin-Bereich. Dort kannst du Einträge anlegen, bearbeiten, Teams und Sprecher verwalten und Share-Links erstellen.",
+      visual: null,
+    }];
+  }
+  if (session.role === "team") {
+    return [{
+      icon: "👥",
+      title: `Deine Einsätze als ${session.teamName}`,
+      body: "Alle Einträge wo dein Team eingeteilt ist, werden lila hervorgehoben mit dem Badge \"Ihr Einsatz\". So siehst du auf einen Blick wann du gefragt bist.",
+      visual: (
+        <div className="rounded-lg border-l-4 border-violet-500 bg-violet-50 dark:bg-violet-900/30 p-2 text-xs">
+          <div className="flex justify-between">
+            <span className="font-bold text-violet-900 dark:text-violet-200">Prüfung 01 – Dressur</span>
+            <span className="font-mono text-violet-700 dark:text-violet-300">09:00–11:00</span>
+          </div>
+          <span className="bg-violet-600 text-white px-1.5 py-0.5 rounded text-xs font-semibold mt-1 inline-block">Ihr Einsatz</span>
+        </div>
+      ),
+    }];
+  }
+  if (session.role === "speaker") {
+    return [{
+      icon: "🎙️",
+      title: `Du bist eingeloggt als ${session.speakerName}`,
+      body: "Alle Einträge wo du als Sprecher eingeteilt bist, werden farbig hervorgehoben. Dein Name erscheint auch im Header damit alle wissen wer eingeloggt ist.",
+      visual: (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="rounded-full px-2 py-1 text-white font-medium" style={{ backgroundColor: session.speakerColor || "#6366f1" }}>
+            🎙 {session.speakerName} · {session.speakerRole}
+          </span>
+          <span className="text-gray-500 dark:text-gray-400">= deine Einträge</span>
+        </div>
+      ),
+    }];
+  }
+  return [{
+    icon: "👁️",
+    title: "Viewer-Zugang",
+    body: "Du kannst den gesamten Zeitplan einsehen und zwischen Tagen navigieren. Änderungen sind nur für Administratoren möglich.",
+    visual: null,
+  }];
 }
 
 function isEntryDone(entry: ScheduleEntry): boolean {
@@ -203,6 +490,7 @@ export default function App() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<AppView>("tournament-select");
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const activeTournamentRef = useRef<Tournament | null>(null);
 
   useEffect(() => {
@@ -246,7 +534,11 @@ export default function App() {
     }
   }, [selectedDate, loadEntries]);
 
-  async function handleLogin(s: AppSession) { setSession(s); }
+  async function handleLogin(s: AppSession) {
+    setSession(s);
+    const seen = localStorage.getItem(ONBOARDING_KEY + "-" + s.role);
+    if (!seen) setShowOnboarding(true);
+  }
   async function handleLogout() {
     await fetch("/api/auth", { method: "DELETE" });
     setSession(null); setActiveTournament(null); setTournaments([]); setView("tournament-select");
@@ -266,6 +558,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      {showOnboarding && session && (
+        <OnboardingOverlay session={session} onDone={() => setShowOnboarding(false)} />
+      )}
       <header className="bg-gradient-to-r from-indigo-800 to-violet-700 text-white shadow-lg">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
@@ -412,14 +707,184 @@ function TournamentSelect({ tournaments, session, onSelect, onLogout, onCreated 
   );
 }
 
+// ── Timeline View ────────────────────────────────────────────────────────────
+const PX_PER_HOUR = 96; // Höhe pro Stunde in px
+const PX_PER_MIN = PX_PER_HOUR / 60;
+
+function toMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+const PHASE_TIMELINE: Record<string, { bg: string; border: string; text: string }> = {
+  aufbau:    { bg: "bg-orange-100 dark:bg-orange-900/40", border: "border-orange-400", text: "text-orange-800 dark:text-orange-200" },
+  wettkampf: { bg: "bg-blue-100 dark:bg-blue-900/40",   border: "border-blue-400",   text: "text-blue-800 dark:text-blue-200" },
+  abbau:     { bg: "bg-purple-100 dark:bg-purple-900/40", border: "border-purple-400", text: "text-purple-800 dark:text-purple-200" },
+  pause:     { bg: "bg-gray-100 dark:bg-gray-700",       border: "border-gray-300 dark:border-gray-500",   text: "text-gray-600 dark:text-gray-300" },
+};
+
+function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEntry[]; selectedDate: string; session: AppSession | null }) {
+  const myTeamId = session?.teamId;
+  const mySpeakerId = session?.speakerId;
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Alle Plätze aus Einträgen (+ "Kein Platz" falls vorhanden)
+  const arenaMap = new Map<number | null, string>();
+  for (const e of entries) {
+    if (e.arena_id != null) arenaMap.set(e.arena_id, e.arena_name ?? `Platz ${e.arena_id}`);
+    else arenaMap.set(null, "– Kein Platz –");
+  }
+  const arenas: { id: number | null; name: string }[] = [];
+  // Sortiere: null ans Ende
+  const sortedKeys = [...arenaMap.keys()].sort((a, b) => a == null ? 1 : b == null ? -1 : (a as number) - (b as number));
+  for (const k of sortedKeys) arenas.push({ id: k, name: arenaMap.get(k)! });
+
+  // Zeitbereich berechnen
+  let dayStart = 7 * 60; // 07:00
+  let dayEnd = 21 * 60;  // 21:00
+  if (entries.length > 0) {
+    const starts = entries.map(e => toMinutes(e.start_time));
+    const ends = entries.map(e => toMinutes(e.end_time));
+    dayStart = Math.floor(Math.min(...starts) / 60) * 60;
+    dayEnd = Math.ceil(Math.max(...ends) / 60) * 60;
+    dayStart = Math.max(0, dayStart - 30); // 30 min Puffer oben
+    dayEnd = Math.min(24 * 60, dayEnd + 30);
+  }
+  const totalMinutes = dayEnd - dayStart;
+  const totalHeight = totalMinutes * PX_PER_MIN;
+
+  // Stundenlinien
+  const hourLines: number[] = [];
+  for (let m = Math.ceil(dayStart / 60) * 60; m <= dayEnd; m += 60) hourLines.push(m);
+
+  // Aktuelle Zeit
+  const isToday = selectedDate === today();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const showNowLine = isToday && nowMinutes >= dayStart && nowMinutes <= dayEnd;
+  const nowTop = (nowMinutes - dayStart) * PX_PER_MIN;
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+      <div className="flex min-w-max">
+        {/* Zeitachse */}
+        <div className="w-14 shrink-0 relative" style={{ height: totalHeight + 32 }}>
+          <div className="h-8 border-b border-gray-200 dark:border-gray-700" /> {/* Header-Leerzeile */}
+          <div className="relative" style={{ height: totalHeight }}>
+            {hourLines.map(m => (
+              <div key={m} className="absolute left-0 right-0 flex items-center" style={{ top: (m - dayStart) * PX_PER_MIN }}>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 px-1.5 font-mono leading-none">
+                  {String(Math.floor(m / 60)).padStart(2, "0")}:00
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Platz-Spalten */}
+        {arenas.map(arena => {
+          const col = entries.filter(e => (e.arena_id ?? null) === arena.id);
+          return (
+            <div key={String(arena.id)} className="flex-1 min-w-[180px] border-l border-gray-200 dark:border-gray-700">
+              {/* Spalten-Header */}
+              <div className="h-8 flex items-center justify-center border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/20 px-2">
+                <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 truncate text-center">📍 {arena.name}</span>
+              </div>
+              {/* Inhalt */}
+              <div className="relative" style={{ height: totalHeight }}>
+                {/* Stunden-Rasterlinien */}
+                {hourLines.map(m => (
+                  <div key={m} className="absolute left-0 right-0 border-t border-gray-100 dark:border-gray-700/60"
+                    style={{ top: (m - dayStart) * PX_PER_MIN }} />
+                ))}
+                {/* Jetzt-Linie */}
+                {showNowLine && (
+                  <div className="absolute left-0 right-0 z-20 pointer-events-none"
+                    style={{ top: nowTop }}>
+                    <div className="h-0.5 bg-red-500 w-full" />
+                    <div className="absolute -top-1.5 -left-1 w-3 h-3 bg-red-500 rounded-full" />
+                  </div>
+                )}
+                {/* Einträge */}
+                {col.map(entry => {
+                  const startMin = toMinutes(entry.start_time);
+                  const endMin = toMinutes(entry.end_time);
+                  const duration = Math.max(endMin - startMin, 15);
+                  const top = (startMin - dayStart) * PX_PER_MIN;
+                  const height = Math.max(duration * PX_PER_MIN, 28);
+                  const done = isEntryDone(entry);
+                  const isMyTeam = myTeamId != null && entry.teams?.some(t => t.id === myTeamId);
+                  const isMySpeaker = mySpeakerId != null && entry.speaker_id === mySpeakerId;
+                  const phase = PHASE_TIMELINE[entry.phase] ?? PHASE_TIMELINE.pause;
+
+                  let blockCls = `absolute left-1 right-1 rounded-lg border-l-4 overflow-hidden cursor-default transition-opacity px-1.5 py-1 ${phase.bg} ${phase.border} ${phase.text}`;
+                  if (done) blockCls += " opacity-40";
+                  if (isMyTeam) blockCls = `absolute left-1 right-1 rounded-lg border-l-4 overflow-hidden cursor-default transition-opacity px-1.5 py-1 bg-violet-100 dark:bg-violet-900/40 border-violet-500 text-violet-900 dark:text-violet-200 ring-1 ring-violet-400`;
+                  if (isMySpeaker && !isMyTeam) blockCls = `absolute left-1 right-1 rounded-lg border-l-4 overflow-hidden cursor-default transition-opacity px-1.5 py-1 bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-400`;
+
+                  return (
+                    <div key={entry.id} className={blockCls} style={{ top, height, zIndex: 10 }}
+                      title={`${entry.pruefungs_id ? entry.pruefungs_id + " · " : ""}${entry.title}\n${entry.start_time}–${entry.end_time}${entry.teams?.length ? "\n" + entry.teams.map(t => t.name).join(", ") : ""}`}>
+                      <div className="font-semibold leading-tight truncate" style={{ fontSize: height < 36 ? "9px" : "11px" }}>
+                        {entry.pruefungs_id && <span className="opacity-60 mr-1">{entry.pruefungs_id}</span>}
+                        {entry.title}
+                      </div>
+                      {height >= 36 && (
+                        <div className="font-mono opacity-70" style={{ fontSize: "9px" }}>{entry.start_time}–{entry.end_time}</div>
+                      )}
+                      {height >= 52 && entry.teams && entry.teams.length > 0 && (
+                        <div className="truncate opacity-70" style={{ fontSize: "9px" }}>
+                          👥 {entry.teams.map(t => t.name).join(", ")}
+                        </div>
+                      )}
+                      {height >= 64 && entry.speaker_name && (
+                        <div className="truncate" style={{ fontSize: "9px" }}>
+                          <span className="rounded px-1 text-white" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
+                            🎙 {entry.speaker_name}
+                          </span>
+                        </div>
+                      )}
+                      {done && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="border-t border-current w-full opacity-30" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legende */}
+      <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-2 flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+        {Object.entries(PHASE_CONFIG).map(([k, v]) => (
+          <span key={k} className="flex items-center gap-1">
+            <span className={`w-2.5 h-2.5 rounded-sm border-l-2 ${PHASE_TIMELINE[k].border} ${PHASE_TIMELINE[k].bg}`} />
+            {v.label}
+          </span>
+        ))}
+        {showNowLine && <span className="flex items-center gap-1 text-red-500 font-semibold"><span className="w-2.5 h-0.5 bg-red-500 inline-block" /> Jetzt</span>}
+      </div>
+    </div>
+  );
+}
+
 function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefresh }: {
   entries: ScheduleEntry[]; selectedDate: string; setSelectedDate: (d: string) => void; session: AppSession | null; onRefresh: () => void;
 }) {
   void onRefresh;
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const myTeamId = session?.teamId;
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-sm gap-2">
+      <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-sm gap-2">
         <button
           onClick={() => setSelectedDate(addDays(selectedDate, -1))}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 transition"
@@ -446,6 +911,22 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
         </button>
       </div>
 
+      {/* Ansicht-Umschalter */}
+      <div className="flex gap-1 mb-4 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit border border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setViewMode("list")}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "list" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+        >
+          ≡ Liste
+        </button>
+        <button
+          onClick={() => setViewMode("timeline")}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "timeline" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+        >
+          ▦ Zeitleiste
+        </button>
+      </div>
+
       {entries.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <div className="text-4xl mb-3">📋</div>
@@ -453,17 +934,19 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
           {session?.role === "admin" && <p className="text-sm mt-1">Im ⚙️ Admin-Bereich Einträge anlegen.</p>}
           {session?.role === "team" && <p className="text-sm mt-1 text-violet-600">Heute keine Einsätze für {session.teamName}.</p>}
         </div>
-      ) : (
+      ) : viewMode === "list" ? (
         <div className="space-y-2">
           {entries.map(e => <EntryCard key={e.id} entry={e} myTeamId={myTeamId} />)}
         </div>
+      ) : (
+        <TimelineView entries={entries} selectedDate={selectedDate} session={session} />
       )}
     </div>
   );
 }
 
 function AdminTab({ onRefresh, activeTournamentId }: { onRefresh: () => void; activeTournamentId?: number }) {
-  const [tab, setTab] = useState<"entries" | "speakers" | "arenas" | "teams" | "settings" | "api" | "share">("entries");
+  const [tab, setTab] = useState<"entries" | "speakers" | "arenas" | "teams" | "settings" | "api" | "share" | "inquiries">("entries");
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [arenas, setArenas] = useState<Arena[]>([]);
@@ -509,6 +992,7 @@ function AdminTab({ onRefresh, activeTournamentId }: { onRefresh: () => void; ac
     { key: "settings", label: "Passwörter" },
     { key: "api", label: "API-Zugang" },
     { key: "share", label: "Share-Link" },
+    { key: "inquiries", label: "Anfragen" },
   ] as const;
 
   return (
@@ -553,6 +1037,7 @@ function AdminTab({ onRefresh, activeTournamentId }: { onRefresh: () => void; ac
       {tab === "settings" && <PasswordSettings />}
       {tab === "api" && <ApiKeySettings />}
       {tab === "share" && <ShareTab tournamentId={activeTournamentId} />}
+      {tab === "inquiries" && <InquiriesTab />}
 
       {showForm && (
         <EntryForm
@@ -994,6 +1479,42 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+function InquiriesTab() {
+  const [inquiries, setInquiries] = useState<{ id: number; name: string; email: string; message?: string; created_at: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/contact").then(r => r.json()).then(d => { setInquiries(Array.isArray(d) ? d : []); setLoading(false); });
+  }, []);
+
+  if (loading) return <p className="text-gray-400 text-sm py-4">Laden…</p>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200">Kontaktanfragen ({inquiries.length})</h3>
+      </div>
+      {inquiries.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <div className="text-3xl mb-2">📭</div>
+          <p className="text-sm">Noch keine Anfragen eingegangen.</p>
+        </div>
+      ) : inquiries.map(q => (
+        <div key={q.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-1">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="font-semibold text-gray-800 dark:text-gray-100">{q.name}</p>
+              <a href={`mailto:${q.email}`} className="text-indigo-600 dark:text-indigo-400 text-sm hover:underline">{q.email}</a>
+            </div>
+            <span className="text-xs text-gray-400 shrink-0">{new Date(q.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+          {q.message && <p className="text-sm text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-2 mt-2">{q.message}</p>}
+        </div>
+      ))}
     </div>
   );
 }
