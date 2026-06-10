@@ -18,6 +18,12 @@ After changing `lib/db.ts` or when the app behaves unexpectedly after code chang
 rm -rf .next && npm run dev
 ```
 
+## Workflow
+
+- **Kein direkter Push auf `main`** — immer über einen Feature-Branch + Pull Request
+- **Vor jedem Commit**: `npm run build && npm run lint` müssen fehlerfrei durchlaufen
+- **Deployment**: Vercel, automatisch aus Branch `main` (nur via PR-Merge)
+
 ## Architecture
 
 **EquiPlan** — internal scheduling app for equestrian events (Pferdesport/Reitturniere).
