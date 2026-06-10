@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ imported: results.length, errors: errors.length, results, errors }, {
+  return NextResponse.json({ imported: results.length, errorCount: errors.length, results, errors }, {
     status: errors.length > 0 && results.length === 0 ? 400 : 200
   });
 }
