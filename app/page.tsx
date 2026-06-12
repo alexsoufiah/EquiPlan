@@ -74,7 +74,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 flex flex-col items-center justify-center p-4 overflow-hidden relative">
+    <div className="fixed inset-0 bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 flex flex-col items-center justify-center p-6 overflow-hidden touch-none select-none" style={{WebkitOverflowScrolling: "auto"}}>
       {/* Animated background orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-24 w-80 h-80 bg-violet-500/15 rounded-full blur-3xl animate-pulse" />
@@ -82,7 +82,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
         <div className="absolute top-3/4 left-1/3 w-48 h-48 bg-violet-600/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: "3s" }} />
       </div>
 
-      <div className="relative w-full max-w-sm">
+      <div className="relative w-full max-w-sm touch-auto select-text">
         {screen === "welcome" ? (
           <div className="text-center space-y-7 animate-fade-in">
             {/* Logo + Brand */}
