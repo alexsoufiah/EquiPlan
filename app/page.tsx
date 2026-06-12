@@ -698,6 +698,16 @@ export default function App() {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState(today());
   const [pushEnabled, setPushEnabled] = useState(false);
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.pushManager.getSubscription().then(sub => {
+          if (sub) setPushEnabled(true);
+        });
+      }).catch(() => {});
+    }
+  }, []);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<AppView>("tournament-select");
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -758,6 +768,14 @@ export default function App() {
     }
     const seen = localStorage.getItem(ONBOARDING_KEY + "-" + s.role);
     if (!seen) setShowOnboarding(true);
+    // Push automatisch aktivieren
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        await registerPush();
+        setPushEnabled(true);
+      }
+    } catch { /* Push nicht verfügbar */ }
   }
   async function handleLogout() {
     await fetch("/api/auth", { method: "DELETE" });
