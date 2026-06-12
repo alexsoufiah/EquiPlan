@@ -74,7 +74,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 flex flex-col items-center justify-center p-4 overflow-hidden relative">
+    <div className="fixed inset-0 bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 flex flex-col items-center justify-center p-4 overflow-hidden relative">
       {/* Animated background orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-24 w-80 h-80 bg-violet-500/15 rounded-full blur-3xl animate-pulse" />
