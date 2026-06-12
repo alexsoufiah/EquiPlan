@@ -1289,7 +1289,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              className={inputClass} />
             <button onClick={() => { setEditEntry({ date: selectedDate, phase: "wettkampf", tournament_id: activeTournamentId }); setShowForm(true); }}
               className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
               + Neuer Eintrag
