@@ -87,7 +87,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
           <div className="text-center space-y-7 animate-fade-in">
             {/* Logo + Brand */}
             <div className="space-y-3">
-              <img src="/logo.png" alt="EquiPlan" className="w-24 h-24 mx-auto object-contain drop-shadow-2xl" />
+              <img src="/logo.png" alt="EquiPlan" className="w-24 h-24 mx-auto object-contain drop-shadow-2xl rounded-2xl" />
               <div>
                 <h1 className="text-5xl font-bold text-white tracking-tight">
                   Equi<span className="text-violet-400">Plan</span>

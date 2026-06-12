@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="theme-color" content="#4f46e5" />
       </head>
-      <body className={`${geist.className} min-h-screen`}>
+      <body className={`${geist.className} min-h-screen bg-indigo-950`}>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
