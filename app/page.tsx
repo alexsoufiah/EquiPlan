@@ -1279,7 +1279,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
       <div className="flex gap-2 mb-5 flex-wrap">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${tab === t.key ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"}`}>
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${tab === t.key ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"}`}>
             {t.label}
           </button>
         ))}
@@ -1939,16 +1939,21 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
       const { default: autoTable } = await import("jspdf-autotable");
       const doc = new jsPDF({ orientation: "landscape" });
 
-      // Header
-      doc.setFillColor(79, 70, 229);
-      doc.rect(0, 0, 297, 20, "F");
+      // Header-Gradient simulieren (zwei Rechtecke)
+      doc.setFillColor(55, 48, 163); // indigo-800
+      doc.rect(0, 0, 297, 22, "F");
+      doc.setFillColor(109, 40, 217); // violet-700
+      doc.rect(180, 0, 117, 22, "F");
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("EquiPlan – Schichtauswertung", 14, 13);
-      doc.setFontSize(10);
+      doc.text("EquiPlan", 14, 14);
+      doc.setTextColor(196, 181, 253); // violet-300
+      doc.text("  Schichtauswertung", 42, 14);
+      doc.setTextColor(199, 210, 254); // indigo-200
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`Erstellt: ${new Date().toLocaleDateString("de-DE")}`, 230, 13);
+      doc.text(`Erstellt: ${new Date().toLocaleDateString("de-DE")}`, 238, 14);
 
       // Zusammenfassung
       doc.setTextColor(0, 0, 0);
@@ -1970,13 +1975,14 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
       }
 
       autoTable(doc, {
-        startY: 34,
+        startY: 36,
         head: [["Mitarbeiter", "Schichten", "Gesamtstunden", "Anwesend"]],
         body: Object.entries(byWorker).sort((a, b) => b[1].hours - a[1].hours).map(([name, d]) => [
           name, d.shifts, `${d.hours % 1 === 0 ? d.hours : d.hours.toFixed(1)}h`, `${d.attended}/${d.shifts}`
         ]),
-        headStyles: { fillColor: [79, 70, 229] },
-        alternateRowStyles: { fillColor: [240, 240, 255] },
+        headStyles: { fillColor: [55, 48, 163], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [238, 242, 255] },
+        columnStyles: { 2: { fontStyle: "bold", textColor: [79, 70, 229] } },
       });
 
       // Detailliste
@@ -1995,8 +2001,14 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
           if (s.assignments.length === 0) return [[s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, "—", "—"]];
           return s.assignments.map(a => [s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, a.worker_name, a.attended === 1 ? "✓" : "–"]);
         }),
-        headStyles: { fillColor: [79, 70, 229] },
-        alternateRowStyles: { fillColor: [248, 248, 255] },
+        headStyles: { fillColor: [55, 48, 163], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [238, 242, 255] },
+        didParseCell: (data: any) => {
+          if (data.column.index === 4 && data.cell.raw === "✓") {
+            data.cell.styles.textColor = [22, 163, 74]; // green-600
+            data.cell.styles.fontStyle = "bold";
+          }
+        },
       });
 
       doc.save(`EquiPlan_Schichten_${new Date().toISOString().slice(0, 10)}.pdf`);
