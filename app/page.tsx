@@ -763,7 +763,7 @@ export default function App() {
         const all: Tournament[] = await res.json();
         setTournaments(all);
         const mine = all.find(t => t.id === s.adminTournamentId);
-        if (mine) setActiveTournament(mine);
+        if (mine) { if (mine.start_date) setSelectedDate(mine.start_date); setActiveTournament(mine); }
       }
     }
     const seen = localStorage.getItem(ONBOARDING_KEY + "-" + s.role);
@@ -791,7 +791,7 @@ export default function App() {
   if (!session) return <LoginForm onLogin={handleLogin} />;
 
   if (view === "tournament-select" || !activeTournament) {
-    return <TournamentSelect tournaments={tournaments} session={session} onSelect={t => setActiveTournament(t)} onLogout={handleLogout} onCreated={loadTournaments} />;
+    return <TournamentSelect tournaments={tournaments} session={session} onSelect={t => { if (t.start_date) setSelectedDate(t.start_date); setActiveTournament(t); }} onLogout={handleLogout} onCreated={loadTournaments} />;
   }
 
   return (
