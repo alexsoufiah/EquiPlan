@@ -19,10 +19,10 @@ interface ScheduleEntry {
 }
 
 const PHASE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  aufbau:    { label: "Aufbau",    color: "text-orange-700 dark:text-orange-300", bg: "bg-orange-50 dark:bg-[#1c1c2e]",  border: "border-orange-300 dark:border-orange-800/60" },
-  wettkampf: { label: "Wettkampf", color: "text-blue-700 dark:text-blue-300",     bg: "bg-blue-50 dark:bg-[#1c1c2e]",    border: "border-blue-300 dark:border-blue-800/60"     },
-  abbau:     { label: "Abbau",     color: "text-purple-700 dark:text-purple-300", bg: "bg-purple-50 dark:bg-[#1c1c2e]",  border: "border-purple-300 dark:border-purple-800/60" },
-  pause:     { label: "Pause",     color: "text-gray-600 dark:text-gray-400",     bg: "bg-gray-50 dark:bg-[#1c1c2e]",    border: "border-gray-300 dark:border-gray-700/60"     },
+  aufbau:    { label: "Aufbau",    color: "text-orange-700 dark:text-orange-300", bg: "bg-orange-100 dark:bg-[#1c1c2e]",  border: "border-orange-400 dark:border-orange-800/60" },
+  wettkampf: { label: "Wettkampf", color: "text-blue-700 dark:text-blue-300",     bg: "bg-blue-100 dark:bg-[#1c1c2e]",    border: "border-blue-400 dark:border-blue-800/60"     },
+  abbau:     { label: "Abbau",     color: "text-purple-700 dark:text-purple-300", bg: "bg-purple-100 dark:bg-[#1c1c2e]",  border: "border-purple-400 dark:border-purple-800/60" },
+  pause:     { label: "Pause",     color: "text-gray-600 dark:text-gray-400",     bg: "bg-gray-100 dark:bg-[#1c1c2e]",    border: "border-gray-400 dark:border-gray-700/60"     },
 };
 
 function formatDate(d: string) {
