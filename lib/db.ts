@@ -121,6 +121,16 @@ function initSchema(db: Database.Database) {
   if (!tournCols.includes("share_token")) db.exec("ALTER TABLE tournaments ADD COLUMN share_token TEXT");
   if (!tournCols.includes("logo_path")) db.exec("ALTER TABLE tournaments ADD COLUMN logo_path TEXT");
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_phases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#6366f1',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
   const cols = (db.prepare("PRAGMA table_info(schedule_entries)").all() as { name: string }[]).map(c => c.name);
   if (!cols.includes("pruefungs_id")) db.exec("ALTER TABLE schedule_entries ADD COLUMN pruefungs_id TEXT");
   if (!cols.includes("external_source")) db.exec("ALTER TABLE schedule_entries ADD COLUMN external_source TEXT");

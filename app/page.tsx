@@ -1263,9 +1263,18 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
   );
 }
 
+type AdminMainTab = "zeitplan" | "turnier" | "verwaltung";
+type ZeitplanSub = "entries" | "shifts";
+type TurnierSub = "details" | "organisation" | "phasen" | "dokumente" | "share";
+type VerwaltungSub = "settings" | "api" | "inquiries" | "admins";
+
 function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () => void; activeTournamentId?: number; session: AppSession | null }) {
   const isSuperAdmin = !session?.adminTournamentId;
-  const [tab, setTab] = useState<"entries" | "speakers" | "arenas" | "teams" | "settings" | "api" | "share" | "inquiries" | "documents" | "admins" | "shifts" | "tournament">("entries");
+  const [main, setMain] = useState<AdminMainTab>("zeitplan");
+  const [zeitplanSub, setZeitplanSub] = useState<ZeitplanSub>("entries");
+  const [turnierSub, setTurnierSub] = useState<TurnierSub>("details");
+  const [verwaltungSub, setVerwaltungSub] = useState<VerwaltungSub>("settings");
+
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [arenas, setArenas] = useState<Arena[]>([]);
@@ -1308,34 +1317,47 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
     load(); onRefresh();
   }
 
-  const tabs = [
-    { key: "entries", label: "Einträge" },
-    { key: "tournament", label: "🏆 Turnier" },
-    { key: "speakers", label: "Sprecher" },
-    { key: "arenas", label: "Plätze" },
-    { key: "teams", label: "Teams" },
-    { key: "settings", label: "Passwörter" },
-    { key: "api", label: "API-Zugang" },
-    { key: "share", label: "Share-Link" },
-    { key: "shifts", label: "🕐 Schichten" },
-    { key: "inquiries", label: "Anfragen" },
-    { key: "documents", label: "📄 Dokumente" },
-    ...(isSuperAdmin ? [{ key: "admins" as const, label: "👥 Admins" }] : []),
-  ] as const;
+  const mainBtnCls = (key: AdminMainTab) =>
+    `px-4 py-2 rounded-xl text-sm font-semibold transition ${main === key ? "bg-indigo-600 text-white shadow" : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"}`;
+  const subBtnCls = (active: boolean) =>
+    `px-3 py-1.5 rounded-lg text-xs font-medium transition ${active ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"}`;
 
   return (
-    <div>
-      <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4"><span className="text-indigo-900">Equi</span><span className="text-violet-600">Plan</span> – Admin</h2>
-      <div className="flex gap-2 mb-5 flex-wrap">
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${tab === t.key ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-500"}`}>
-            {t.label}
-          </button>
-        ))}
+    <div className="space-y-4">
+      {/* Haupt-Navigation */}
+      <div className="flex gap-2">
+        <button className={mainBtnCls("zeitplan")} onClick={() => setMain("zeitplan")}>📅 Zeitplan</button>
+        <button className={mainBtnCls("turnier")} onClick={() => setMain("turnier")}>🏆 Turnier</button>
+        {isSuperAdmin && <button className={mainBtnCls("verwaltung")} onClick={() => setMain("verwaltung")}>⚙️ Verwaltung</button>}
       </div>
 
-      {tab === "entries" && (
+      {/* Sub-Navigation */}
+      {main === "zeitplan" && (
+        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 pb-3">
+          <button className={subBtnCls(zeitplanSub === "entries")} onClick={() => setZeitplanSub("entries")}>Einträge</button>
+          <button className={subBtnCls(zeitplanSub === "shifts")} onClick={() => setZeitplanSub("shifts")}>🕐 Schichten</button>
+        </div>
+      )}
+      {main === "turnier" && (
+        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 pb-3 flex-wrap">
+          <button className={subBtnCls(turnierSub === "details")} onClick={() => setTurnierSub("details")}>Details & Logo</button>
+          <button className={subBtnCls(turnierSub === "organisation")} onClick={() => setTurnierSub("organisation")}>Sprecher · Plätze · Teams</button>
+          <button className={subBtnCls(turnierSub === "phasen")} onClick={() => setTurnierSub("phasen")}>Phasen</button>
+          <button className={subBtnCls(turnierSub === "dokumente")} onClick={() => setTurnierSub("dokumente")}>📄 Dokumente</button>
+          <button className={subBtnCls(turnierSub === "share")} onClick={() => setTurnierSub("share")}>🔗 Share-Link</button>
+        </div>
+      )}
+      {main === "verwaltung" && isSuperAdmin && (
+        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 pb-3 flex-wrap">
+          <button className={subBtnCls(verwaltungSub === "settings")} onClick={() => setVerwaltungSub("settings")}>Passwörter</button>
+          <button className={subBtnCls(verwaltungSub === "api")} onClick={() => setVerwaltungSub("api")}>API-Zugang</button>
+          <button className={subBtnCls(verwaltungSub === "inquiries")} onClick={() => setVerwaltungSub("inquiries")}>Anfragen</button>
+          <button className={subBtnCls(verwaltungSub === "admins")} onClick={() => setVerwaltungSub("admins")}>👥 Admins</button>
+        </div>
+      )}
+
+      {/* Inhalte */}
+      {main === "zeitplan" && zeitplanSub === "entries" && (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
@@ -1359,17 +1381,18 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
           {entries.length === 0 && <p className="text-gray-400 dark:text-gray-500 text-center py-8">Keine Einträge für diesen Tag.</p>}
         </div>
       )}
-      {tab === "speakers" && <SpeakersTab speakers={speakers} onRefresh={load} />}
-      {tab === "arenas" && <ArenasTab arenas={arenas} onRefresh={load} />}
-      {tab === "teams" && <TeamsTab teams={teams} onRefresh={load} />}
-      {tab === "settings" && <PasswordSettings />}
-      {tab === "api" && <ApiKeySettings />}
-      {tab === "tournament" && <TournamentSettingsTab tournamentId={activeTournamentId} onLogoUpdated={onRefresh} />}
-      {tab === "share" && <ShareTab tournamentId={activeTournamentId} />}
-      {tab === "shifts" && <ShiftsTab tournamentId={activeTournamentId} tournament={tournament} />}
-      {tab === "inquiries" && <InquiriesTab />}
-      {tab === "documents" && <DocumentsAdminTab tournamentId={activeTournamentId} />}
-      {tab === "admins" && isSuperAdmin && <AdminsTab />}
+      {main === "zeitplan" && zeitplanSub === "shifts" && <ShiftsTab tournamentId={activeTournamentId} tournament={tournament} />}
+
+      {main === "turnier" && turnierSub === "details" && <TournamentSettingsTab tournamentId={activeTournamentId} onLogoUpdated={onRefresh} />}
+      {main === "turnier" && turnierSub === "organisation" && <OrganisationTab speakers={speakers} arenas={arenas} teams={teams} onRefresh={load} />}
+      {main === "turnier" && turnierSub === "phasen" && <PhasesTab />}
+      {main === "turnier" && turnierSub === "dokumente" && <DocumentsAdminTab tournamentId={activeTournamentId} />}
+      {main === "turnier" && turnierSub === "share" && <ShareTab tournamentId={activeTournamentId} />}
+
+      {main === "verwaltung" && isSuperAdmin && verwaltungSub === "settings" && <PasswordSettings />}
+      {main === "verwaltung" && isSuperAdmin && verwaltungSub === "api" && <ApiKeySettings />}
+      {main === "verwaltung" && isSuperAdmin && verwaltungSub === "inquiries" && <InquiriesTab />}
+      {main === "verwaltung" && isSuperAdmin && verwaltungSub === "admins" && <AdminsTab />}
 
       {showForm && (
         <EntryForm
@@ -1393,7 +1416,14 @@ function EntryForm({ entry, speakers, arenas, teams, onSave, onClose }: {
 }) {
   const [form, setForm] = useState<Partial<ScheduleEntry>>(entry ?? { phase: "wettkampf", date: today(), teams: [] });
   const [selectedTeamIds, setSelectedTeamIds] = useState<number[]>(entry?.teams?.map(t => t.id) ?? []);
+  const [customPhases, setCustomPhases] = useState<{ key: string; label: string }[]>([]);
   const set = (k: keyof ScheduleEntry, v: unknown) => setForm(f => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    fetch("/api/phases").then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setCustomPhases(d.map((p: { key: string; label: string }) => ({ key: p.key, label: p.label })));
+    });
+  }, []);
 
   function toggleTeam(id: number) {
     setSelectedTeamIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -1419,6 +1449,9 @@ function EntryForm({ entry, speakers, arenas, teams, onSave, onClose }: {
           <Field label="Phase">
             <select value={form.phase ?? "wettkampf"} onChange={e => set("phase", e.target.value)} className={inputClass}>
               {Object.entries(PHASE_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              {customPhases.length > 0 && <optgroup label="Eigene Phasen">
+                {customPhases.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+              </optgroup>}
             </select>
           </Field>
           <Field label="Platz">
@@ -1763,6 +1796,112 @@ function ApiKeySettings() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function OrganisationTab({ speakers, arenas, teams, onRefresh }: { speakers: Speaker[]; arenas: Arena[]; teams: Team[]; onRefresh: () => void }) {
+  const [sub, setSub] = useState<"speakers" | "arenas" | "teams">("speakers");
+  const s = (key: typeof sub) => `px-3 py-1.5 rounded-lg text-sm font-medium transition ${sub === key ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"}`;
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <button className={s("speakers")} onClick={() => setSub("speakers")}>🎙 Sprecher</button>
+        <button className={s("arenas")} onClick={() => setSub("arenas")}>📍 Plätze</button>
+        <button className={s("teams")} onClick={() => setSub("teams")}>👥 Teams</button>
+      </div>
+      {sub === "speakers" && <SpeakersTab speakers={speakers} onRefresh={onRefresh} />}
+      {sub === "arenas" && <ArenasTab arenas={arenas} onRefresh={onRefresh} />}
+      {sub === "teams" && <TeamsTab teams={teams} onRefresh={onRefresh} />}
+    </div>
+  );
+}
+
+interface CustomPhase { id: number; key: string; label: string; color: string; }
+
+const PHASE_COLORS = [
+  { label: "Indigo",  value: "#6366f1" },
+  { label: "Violett", value: "#8b5cf6" },
+  { label: "Rose",    value: "#f43f5e" },
+  { label: "Türkis",  value: "#14b8a6" },
+  { label: "Grün",    value: "#22c55e" },
+  { label: "Amber",   value: "#f59e0b" },
+  { label: "Cyan",    value: "#06b6d4" },
+  { label: "Pink",    value: "#ec4899" },
+];
+
+function PhasesTab() {
+  const [custom, setCustom] = useState<CustomPhase[]>([]);
+  const [newLabel, setNewLabel] = useState("");
+  const [newColor, setNewColor] = useState("#6366f1");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/phases").then(r => r.json()).then(d => setCustom(Array.isArray(d) ? d : []));
+  }, []);
+
+  async function add() {
+    if (!newLabel.trim()) return;
+    setSaving(true);
+    const r = await fetch("/api/phases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label: newLabel, color: newColor }) });
+    if (r.ok) { const p = await r.json(); setCustom(c => [...c, p]); setNewLabel(""); }
+    else { const d = await r.json(); alert(d.error); }
+    setSaving(false);
+  }
+
+  async function remove(id: number) {
+    await fetch("/api/phases", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setCustom(c => c.filter(p => p.id !== id));
+  }
+
+  const standardPhases = Object.entries(PHASE_CONFIG).map(([key, v]) => ({ key, label: v.label }));
+
+  return (
+    <div className="space-y-5 max-w-lg">
+      {/* Standard */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-3">Standard-Phasen</h3>
+        <div className="flex flex-wrap gap-2">
+          {standardPhases.map(p => (
+            <span key={p.key} className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${PHASE_CONFIG[p.key].bg} ${PHASE_CONFIG[p.key].border} ${PHASE_CONFIG[p.key].color}`}>
+              {p.label}
+            </span>
+          ))}
+        </div>
+        <p className="text-xs text-gray-400 mt-3">Standard-Phasen können nicht gelöscht werden.</p>
+      </div>
+
+      {/* Eigene */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200">Eigene Phasen</h3>
+        {custom.length === 0 && <p className="text-sm text-gray-400">Noch keine eigenen Phasen.</p>}
+        <div className="space-y-2">
+          {custom.map(p => (
+            <div key={p.id} className="flex items-center gap-3">
+              <span className="w-4 h-4 rounded-full shrink-0 border border-gray-200" style={{ backgroundColor: p.color }} />
+              <span className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{p.label}</span>
+              <span className="text-xs text-gray-400 font-mono">{p.key}</span>
+              <button onClick={() => remove(p.id)} className="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 rounded hover:bg-red-50">✕</button>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-4 space-y-3">
+          <h4 className="text-sm font-medium text-gray-600 dark:text-gray-300">Neue Phase anlegen</h4>
+          <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Name (z.B. Vorführung)" className={inputClass} />
+          <div className="flex flex-wrap gap-2">
+            {PHASE_COLORS.map(c => (
+              <button key={c.value} onClick={() => setNewColor(c.value)}
+                className={`w-7 h-7 rounded-full border-2 transition ${newColor === c.value ? "border-gray-800 dark:border-white scale-110" : "border-transparent hover:scale-105"}`}
+                style={{ backgroundColor: c.value }} title={c.label} />
+            ))}
+          </div>
+          <button onClick={add} disabled={saving || !newLabel.trim()}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+            {saving ? "..." : "+ Phase hinzufügen"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
