@@ -1279,7 +1279,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
       <div className="flex gap-2 mb-5 flex-wrap">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${tab === t.key ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"}`}>
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${tab === t.key ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-500"}`}>
             {t.label}
           </button>
         ))}
