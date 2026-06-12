@@ -225,24 +225,11 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     ));
   }
 
-  // Auto-Refresh: alle 30s neue Daten + sofort beim Zurückkommen
+  // Refs für Closure-sichere Werte
   const selectedDateRef = useRef(selectedDate);
   const selectedArenaRef = useRef(selectedArena);
   useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
   useEffect(() => { selectedArenaRef.current = selectedArena; }, [selectedArena]);
-
-  useEffect(() => {
-    const tick = () => load(selectedArenaRef.current, selectedDateRef.current || undefined);
-    const interval = setInterval(tick, 30_000);
-    const onVisible = () => { if (!document.hidden) tick(); };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", tick);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", tick);
-    };
-  }, [load]);
 
   const load = useCallback(async (arenaId?: number | null, date?: string) => {
     const p = new URLSearchParams();
@@ -265,6 +252,29 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
 
   useEffect(() => { load(null, ""); }, [load]);
   useEffect(() => { if (selectedDate) load(selectedArena, selectedDate); }, [selectedArena, selectedDate, load]);
+
+  // SSE: sofortige Live-Updates + Fallback-Polling
+  useEffect(() => {
+    let es: EventSource | null = null;
+    let retryTimeout: ReturnType<typeof setTimeout>;
+    function connect() {
+      es = new EventSource("/api/events");
+      es.addEventListener("update", () => {
+        load(selectedArenaRef.current, selectedDateRef.current || undefined);
+      });
+      es.onerror = () => { es?.close(); retryTimeout = setTimeout(connect, 3_000); };
+    }
+    connect();
+    const interval = setInterval(() => load(selectedArenaRef.current, selectedDateRef.current || undefined), 30_000);
+    const onVisible = () => { if (!document.hidden) load(selectedArenaRef.current, selectedDateRef.current || undefined); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      es?.close(); clearTimeout(retryTimeout); clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [load]);
 
   useEffect(() => {
     if (currentRef.current) currentRef.current.scrollIntoView({ behavior: "smooth", block: "center" });

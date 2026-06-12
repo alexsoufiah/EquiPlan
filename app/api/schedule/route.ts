@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { sendPushNotification } from "@/lib/push";
+import { broadcast } from "@/lib/sse";
 import type Database from "better-sqlite3";
 
 const ENTRY_QUERY = `
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest) {
   );
 
   await sendPushNotification("Zeitplan aktualisiert", `${tournament ? `[${tournament}] ` : ""}Neuer Eintrag: ${title} am ${date} ${start_time}–${end_time}`);
+  broadcast("update", { action: "create", tournament_id, date });
 
   const entry = db.prepare(`${ENTRY_QUERY} WHERE e.id = ?`).get(result.lastInsertRowid);
   return NextResponse.json(attachTeams(db, [entry as Record<string, unknown>])[0], { status: 201 });

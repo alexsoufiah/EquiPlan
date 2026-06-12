@@ -754,22 +754,40 @@ export default function App() {
     }
   }, [selectedDate, loadEntries]);
 
-  // Auto-Refresh: alle 30s + sofort beim Zurückkommen in den Tab
+  // SSE: sofortige Live-Updates wenn der Server Änderungen broadcastet
   useEffect(() => {
-    if (!session || !activeTournamentRef.current) return;
-    const tick = () => {
+    if (!session) return;
+    let es: EventSource | null = null;
+    let retryTimeout: ReturnType<typeof setTimeout>;
+
+    function connect() {
+      es = new EventSource("/api/events");
+      es.addEventListener("update", () => {
+        if (activeTournamentRef.current) loadEntries(activeTournamentRef.current.id, selectedDate);
+      });
+      es.onerror = () => {
+        es?.close();
+        // Reconnect nach 3s
+        retryTimeout = setTimeout(connect, 3_000);
+      };
+    }
+    connect();
+
+    // Fallback-Polling alle 30s (falls SSE durch Proxy blockiert)
+    const interval = setInterval(() => {
       if (activeTournamentRef.current) loadEntries(activeTournamentRef.current.id, selectedDate);
-    };
-    const interval = setInterval(tick, 30_000);
-    const onVisible = () => { if (!document.hidden) tick(); };
+    }, 30_000);
+    const onVisible = () => { if (!document.hidden && activeTournamentRef.current) loadEntries(activeTournamentRef.current.id, selectedDate); };
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", tick);
+    window.addEventListener("focus", onVisible);
+
     return () => {
+      es?.close();
+      clearTimeout(retryTimeout);
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", tick);
+      window.removeEventListener("focus", onVisible);
     };
-  // selectedDate über Ref lesen würde staler Wert sein — darum als Dep
   }, [session, selectedDate, loadEntries]);
 
   async function handleLogin(s: AppSession) {

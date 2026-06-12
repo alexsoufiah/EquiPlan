@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { sendPushNotification } from "@/lib/push";
+import { broadcast } from "@/lib/sse";
 import type Database from "better-sqlite3";
 
 const ENTRY_QUERY = `
@@ -53,6 +54,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   );
 
   await sendPushNotification("Zeitplan geändert", `Eintrag aktualisiert: ${title} am ${date} ${start_time}–${end_time}`);
+  broadcast("update", { action: "update", tournament_id, date });
 
   const entry = db.prepare(`${ENTRY_QUERY} WHERE e.id = ?`).get(id);
   return NextResponse.json(attachTeams(db, entry as Record<string, unknown>));
@@ -74,6 +76,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   );
 
   await sendPushNotification("Zeitplan geändert", `Eintrag entfernt: ${entry.title} am ${entry.date}`);
+  broadcast("update", { action: "delete" });
 
   return NextResponse.json({ ok: true });
 }
