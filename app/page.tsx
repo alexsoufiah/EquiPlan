@@ -19,10 +19,10 @@ interface ScheduleEntry {
 }
 
 const PHASE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  aufbau:    { label: "Aufbau",    color: "text-orange-700", bg: "bg-orange-50",  border: "border-orange-300" },
-  wettkampf: { label: "Wettkampf", color: "text-blue-700",   bg: "bg-blue-50",    border: "border-blue-300" },
-  abbau:     { label: "Abbau",     color: "text-purple-700", bg: "bg-purple-50",  border: "border-purple-300" },
-  pause:     { label: "Pause",     color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-300" },
+  aufbau:    { label: "Aufbau",    color: "text-orange-700 dark:text-orange-300", bg: "bg-orange-50 dark:bg-[#1c1c2e]",  border: "border-orange-300 dark:border-orange-800/60" },
+  wettkampf: { label: "Wettkampf", color: "text-blue-700 dark:text-blue-300",     bg: "bg-blue-50 dark:bg-[#1c1c2e]",    border: "border-blue-300 dark:border-blue-800/60"     },
+  abbau:     { label: "Abbau",     color: "text-purple-700 dark:text-purple-300", bg: "bg-purple-50 dark:bg-[#1c1c2e]",  border: "border-purple-300 dark:border-purple-800/60" },
+  pause:     { label: "Pause",     color: "text-gray-600 dark:text-gray-400",     bg: "bg-gray-50 dark:bg-[#1c1c2e]",    border: "border-gray-300 dark:border-gray-700/60"     },
 };
 
 function formatDate(d: string) {
@@ -425,41 +425,41 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
   const cardContent = (
     <>
       {done ? (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 opacity-50 space-y-1 cursor-pointer hover:opacity-70 transition-opacity">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1c1c2e] p-3 opacity-50 space-y-1 cursor-pointer hover:opacity-70 transition-opacity">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="font-semibold text-gray-400 line-through">
+              <span className="font-semibold text-gray-400 dark:text-gray-500 line-through">
                 {entry.pruefungs_id && <span className="font-normal mr-1">{entry.pruefungs_id}</span>}
                 {entry.title}
               </span>
-              <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium text-gray-400 bg-white border border-gray-200">
+              <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
                 {phase.label} · Abgeschlossen
               </span>
             </div>
-            <span className="text-sm font-mono text-gray-400 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
+            <span className="text-sm font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs text-gray-400">
-            {entry.arena_name && <span className="bg-white border border-gray-200 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
-            {entry.teams?.map(t => <span key={t.id} className="bg-white border border-gray-200 rounded px-2 py-0.5">👥 {t.name}</span>)}
+          <div className="flex flex-wrap gap-2 text-xs text-gray-400 dark:text-gray-500">
+            {entry.arena_name && <span className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
+            {entry.teams?.map(t => <span key={t.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">👥 {t.name}</span>)}
           </div>
         </div>
       ) : isMyTeam ? (
-        <div className="rounded-xl border-l-4 border-violet-500 bg-violet-50 p-3 space-y-1 ring-2 ring-violet-300 shadow-md cursor-pointer hover:brightness-95 transition">
+        <div className="rounded-xl border-l-4 border-violet-500 bg-violet-50 dark:bg-[#1c1c2e] p-3 space-y-1 ring-2 ring-violet-300 dark:ring-violet-800 shadow-md cursor-pointer hover:brightness-95 transition">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="font-bold text-violet-900">
-                {entry.pruefungs_id && <span className="text-violet-400 font-normal mr-1">{entry.pruefungs_id}</span>}
+              <span className="font-bold text-violet-900 dark:text-violet-300">
+                {entry.pruefungs_id && <span className="text-violet-400 dark:text-violet-500 font-normal mr-1">{entry.pruefungs_id}</span>}
                 {entry.title}
               </span>
-              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white border ${phase.border}`}>{phase.label}</span>
+              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border}`}>{phase.label}</span>
               <span className="ml-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-violet-600 text-white">Ihr Einsatz</span>
             </div>
-            <span className="text-sm font-mono font-bold text-violet-700 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
+            <span className="text-sm font-mono font-bold text-violet-700 dark:text-violet-400 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
-            {entry.arena_name && <span className="bg-white border border-violet-200 rounded px-2 py-0.5 text-violet-700">📍 {entry.arena_name}</span>}
+            {entry.arena_name && <span className="bg-white dark:bg-gray-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded px-2 py-0.5 text-violet-700">📍 {entry.arena_name}</span>}
             {entry.teams?.map(t => (
-              <span key={t.id} className={`rounded px-2 py-0.5 border ${t.id === myTeamId ? "bg-violet-600 text-white border-violet-600 font-semibold" : "bg-white border-gray-200 text-gray-600"}`}>
+              <span key={t.id} className={`rounded px-2 py-0.5 border ${t.id === myTeamId ? "bg-violet-600 text-white border-violet-600 font-semibold" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200"}`}>
                 👥 {t.name}
               </span>
             ))}
@@ -469,31 +469,31 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
               </span>
             )}
           </div>
-          {entry.notes && <p className="text-xs text-violet-700 mt-1 italic">{entry.notes}</p>}
+          {entry.notes && <p className="text-xs text-violet-700 dark:text-violet-400 mt-1 italic">{entry.notes}</p>}
         </div>
       ) : (
         <div className={`rounded-xl border-l-4 ${phase.border} ${phase.bg} p-3 space-y-1 cursor-pointer hover:brightness-95 transition`}>
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="font-semibold text-gray-800">
-                {entry.pruefungs_id && <span className="text-gray-400 font-normal mr-1">{entry.pruefungs_id}</span>}
+              <span className="font-semibold text-gray-800 dark:text-gray-100">
+                {entry.pruefungs_id && <span className="text-gray-400 dark:text-gray-500 font-normal mr-1">{entry.pruefungs_id}</span>}
                 {entry.title}
               </span>
-              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white border ${phase.border}`}>{phase.label}</span>
+              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border}`}>{phase.label}</span>
             </div>
-            <span className="text-sm font-mono text-gray-500 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
+            <span className="text-sm font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs text-gray-600">
-            {entry.arena_name && <span className="bg-white border border-gray-200 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
-            {entry.teams?.map(t => <span key={t.id} className="bg-white border border-gray-200 rounded px-2 py-0.5">👥 {t.name}</span>)}
+          <div className="flex flex-wrap gap-2 text-xs text-gray-600 dark:text-gray-300">
+            {entry.arena_name && <span className="bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
+            {entry.teams?.map(t => <span key={t.id} className="bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">👥 {t.name}</span>)}
             {entry.speaker_name && (
               <span className="rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
                 🎙 {entry.speaker_name} ({entry.speaker_role})
               </span>
             )}
           </div>
-          {entry.external_source && <span className="text-xs bg-gray-100 border border-gray-200 rounded px-2 py-0.5 text-gray-400">via {entry.external_source}</span>}
-          {entry.notes && <p className="text-xs text-gray-500 mt-1 italic">{entry.notes}</p>}
+          {entry.external_source && <span className="text-xs bg-gray-100 dark:bg-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5 text-gray-400">via {entry.external_source}</span>}
+          {entry.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">{entry.notes}</p>}
           {(entry.helpers_needed ?? 0) > 0 && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 w-fit mt-1">
               🙋 {entry.helpers_needed} Helfer gesucht{entry.helpers_task ? ` · ${entry.helpers_task}` : ""}
@@ -594,10 +594,10 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white dark:bg-gray-900 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${phase.bg} dark:bg-gray-800`}>
+        <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${phase.bg} dark:bg-[#1c1c2e]`}>
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white border ${phase.border} mr-2`}>{phase.label}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border} mr-2`}>{phase.label}</span>
               <h2 className="font-bold text-gray-900 dark:text-gray-100 text-lg mt-1">
                 {entry.pruefungs_id && <span className="text-gray-400 font-normal mr-1 text-sm">{entry.pruefungs_id}</span>}
                 {entry.title}
@@ -611,8 +611,8 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
         {/* Details */}
         <div className="p-4 space-y-3">
           <div className="flex flex-wrap gap-2 text-sm">
-            {entry.arena_name && <span className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1">📍 {entry.arena_name}</span>}
-            {entry.teams?.map(t => <span key={t.id} className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1">👥 {t.name}</span>)}
+            {entry.arena_name && <span className="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1">📍 {entry.arena_name}</span>}
+            {entry.teams?.map(t => <span key={t.id} className="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1">👥 {t.name}</span>)}
             {entry.speaker_name && (
               <span className="rounded-lg px-3 py-1 text-white text-sm" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
                 🎙 {entry.speaker_name} {entry.speaker_role && `(${entry.speaker_role})`}
