@@ -46,3 +46,9 @@ data/*.db-wal
 
 # Uploaded files
 data/uploads/
+
+# Capacitor iOS generated files (keep ios/ in git, but ignore build artifacts)
+ios/App/Pods/
+ios/.DS_Store
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
