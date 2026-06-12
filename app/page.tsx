@@ -2072,22 +2072,22 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
             reader.onload = () => resolve(reader.result as string);
             reader.readAsDataURL(imgBlob);
           });
-          doc.addImage(imgDataUrl, 14, 2, 18, 18);
-          textStartX = 36;
+          doc.addImage(imgDataUrl, 6, 2, 18, 18);
+          textStartX = 28;
         } catch { /* Logo-Ladefehler ignorieren */ }
       }
 
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
+      // Titelzeile: Turniername (groß) + "Schichtauswertung" (klein, darunter)
       const tournamentName = tournament?.name ?? "EquiPlan";
-      doc.text(tournamentName, textStartX, 14);
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(tournamentName, textStartX, 10);
       doc.setTextColor(196, 181, 253);
-      doc.setFontSize(11);
-      doc.text("  Schichtauswertung", textStartX + doc.getTextWidth(tournamentName), 14);
-      doc.setTextColor(199, 210, 254);
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
+      doc.text("Schichtauswertung", textStartX, 17);
+      doc.setTextColor(199, 210, 254);
       doc.text(`Erstellt: ${new Date().toLocaleDateString("de-DE")}`, 238, 14);
 
       // Zusammenfassung
@@ -2134,14 +2134,17 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
           const [eh, em] = s.end_time.split(":").map(Number);
           const h = (eh * 60 + em - sh * 60 - sm) / 60;
           if (s.assignments.length === 0) return [[s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, "—", "—"]];
-          return s.assignments.map(a => [s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, a.worker_name, a.attended === 1 ? "✓" : "–"]);
+          return s.assignments.map(a => [s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, a.worker_name, a.attended === 1 ? "Ja" : "Nein"]);
         }),
         headStyles: { fillColor: [55, 48, 163], textColor: 255, fontStyle: "bold" },
         alternateRowStyles: { fillColor: [238, 242, 255] },
         didParseCell: (data: any) => {
-          if (data.column.index === 4 && data.cell.raw === "✓") {
-            data.cell.styles.textColor = [22, 163, 74]; // green-600
+          if (data.column.index === 4 && data.cell.raw === "Ja") {
+            data.cell.styles.textColor = [22, 163, 74];
             data.cell.styles.fontStyle = "bold";
+          }
+          if (data.column.index === 4 && data.cell.raw === "Nein") {
+            data.cell.styles.textColor = [185, 28, 28];
           }
         },
       });
