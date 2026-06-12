@@ -1823,6 +1823,7 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
   const [editShift, setEditShift] = useState<Partial<Shift> | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [newWorker, setNewWorker] = useState<{ [shiftId: number]: string }>({});
+  const [view, setView] = useState<"shifts" | "report">("shifts");
 
   const load = useCallback(async () => {
     let url = "/api/shifts";
@@ -1892,14 +1893,128 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
 
   const workerHours = totalHours(shifts);
 
+  function exportExcel() {
+    import("xlsx").then(XLSX => {
+      // Sheet 1: Schichten-Detail
+      const detailRows: any[] = [["Datum", "Aufgabe", "Von", "Bis", "Stunden", "Mitarbeiter", "Anwesend", "Notizen"]];
+      for (const s of shifts) {
+        const [sh, sm] = s.start_time.split(":").map(Number);
+        const [eh, em] = s.end_time.split(":").map(Number);
+        const h = (eh * 60 + em - sh * 60 - sm) / 60;
+        if (s.assignments.length === 0) {
+          detailRows.push([s.date, s.task, s.start_time, s.end_time, h, "—", "—", s.notes ?? ""]);
+        } else {
+          for (const a of s.assignments) {
+            detailRows.push([s.date, s.task, s.start_time, s.end_time, h, a.worker_name, a.attended === 1 ? "Ja" : "Nein", s.notes ?? ""]);
+          }
+        }
+      }
+      // Sheet 2: Stunden-Zusammenfassung
+      const summaryRows: any[] = [["Mitarbeiter", "Schichten", "Gesamtstunden", "Anwesend"]];
+      const byWorker: { [n: string]: { shifts: number; hours: number; attended: number } } = {};
+      for (const s of shifts) {
+        const [sh, sm] = s.start_time.split(":").map(Number);
+        const [eh, em] = s.end_time.split(":").map(Number);
+        const h = (eh * 60 + em - sh * 60 - sm) / 60;
+        for (const a of s.assignments) {
+          if (!byWorker[a.worker_name]) byWorker[a.worker_name] = { shifts: 0, hours: 0, attended: 0 };
+          byWorker[a.worker_name].shifts++;
+          byWorker[a.worker_name].hours += h;
+          if (a.attended === 1) byWorker[a.worker_name].attended++;
+        }
+      }
+      for (const [name, d] of Object.entries(byWorker).sort((a, b) => b[1].hours - a[1].hours)) {
+        summaryRows.push([name, d.shifts, parseFloat(d.hours.toFixed(2)), d.attended]);
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailRows), "Schichten");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), "Auswertung");
+      XLSX.writeFile(wb, `EquiPlan_Schichten_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    });
+  }
+
+  function exportPDF() {
+    import("jspdf").then(async ({ default: jsPDF }) => {
+      const { default: autoTable } = await import("jspdf-autotable");
+      const doc = new jsPDF({ orientation: "landscape" });
+
+      // Header
+      doc.setFillColor(79, 70, 229);
+      doc.rect(0, 0, 297, 20, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("EquiPlan – Schichtauswertung", 14, 13);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Erstellt: ${new Date().toLocaleDateString("de-DE")}`, 230, 13);
+
+      // Zusammenfassung
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Stunden-Übersicht", 14, 30);
+
+      const byWorker: { [n: string]: { shifts: number; hours: number; attended: number } } = {};
+      for (const s of shifts) {
+        const [sh, sm] = s.start_time.split(":").map(Number);
+        const [eh, em] = s.end_time.split(":").map(Number);
+        const h = (eh * 60 + em - sh * 60 - sm) / 60;
+        for (const a of s.assignments) {
+          if (!byWorker[a.worker_name]) byWorker[a.worker_name] = { shifts: 0, hours: 0, attended: 0 };
+          byWorker[a.worker_name].shifts++;
+          byWorker[a.worker_name].hours += h;
+          if (a.attended === 1) byWorker[a.worker_name].attended++;
+        }
+      }
+
+      autoTable(doc, {
+        startY: 34,
+        head: [["Mitarbeiter", "Schichten", "Gesamtstunden", "Anwesend"]],
+        body: Object.entries(byWorker).sort((a, b) => b[1].hours - a[1].hours).map(([name, d]) => [
+          name, d.shifts, `${d.hours % 1 === 0 ? d.hours : d.hours.toFixed(1)}h`, `${d.attended}/${d.shifts}`
+        ]),
+        headStyles: { fillColor: [79, 70, 229] },
+        alternateRowStyles: { fillColor: [240, 240, 255] },
+      });
+
+      // Detailliste
+      const afterSummary = (doc as any).lastAutoTable.finalY + 10;
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Schichten-Detail", 14, afterSummary);
+
+      autoTable(doc, {
+        startY: afterSummary + 4,
+        head: [["Datum", "Aufgabe", "Von–Bis", "Mitarbeiter", "Anwesend"]],
+        body: shifts.flatMap(s => {
+          const [sh, sm] = s.start_time.split(":").map(Number);
+          const [eh, em] = s.end_time.split(":").map(Number);
+          const h = (eh * 60 + em - sh * 60 - sm) / 60;
+          if (s.assignments.length === 0) return [[s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, "—", "—"]];
+          return s.assignments.map(a => [s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, a.worker_name, a.attended === 1 ? "✓" : "–"]);
+        }),
+        headStyles: { fillColor: [79, 70, 229] },
+        alternateRowStyles: { fillColor: [248, 248, 255] },
+      });
+
+      doc.save(`EquiPlan_Schichten_${new Date().toISOString().slice(0, 10)}.pdf`);
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-lg">🕐 Schichtplan</h3>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
             className={inputClass + " text-sm py-1.5"} />
-          {filterDate && <button onClick={() => setFilterDate("")} className="text-xs text-gray-400 hover:text-gray-600">✕ Filter</button>}
+          {filterDate && <button onClick={() => setFilterDate("")} className="text-xs text-gray-400 hover:text-gray-600">✕</button>}
+          {shifts.length > 0 && <>
+            <button onClick={exportExcel} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700">📊 Excel</button>
+            <button onClick={exportPDF} className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-red-700">📄 PDF</button>
+          </>}
           <button onClick={() => setEditShift({ date: filterDate || today(), start_time: "08:00", end_time: "17:00" })}
             className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Schicht</button>
         </div>
