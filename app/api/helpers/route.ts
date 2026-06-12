@@ -31,11 +31,11 @@ export async function POST(req: NextRequest) {
 
   // Validate share_token belongs to the tournament of this entry
   const entry = db.prepare(`
-    SELECT se.id, se.helpers_needed, t.share_token
+    SELECT se.id, se.helpers_needed, se.helpers_task, se.date, se.start_time, se.end_time, se.title, se.tournament_id, t.share_token
     FROM schedule_entries se
     JOIN tournaments t ON t.id = se.tournament_id
     WHERE se.id = ?
-  `).get(Number(entry_id)) as { id: number; helpers_needed: number; share_token: string } | undefined;
+  `).get(Number(entry_id)) as { id: number; helpers_needed: number; helpers_task?: string; date: string; start_time: string; end_time: string; title: string; tournament_id: number; share_token: string } | undefined;
 
   if (!entry) return NextResponse.json({ error: "Event nicht gefunden" }, { status: 404 });
   if (entry.share_token !== share_token) return NextResponse.json({ error: "Ungültiger Link" }, { status: 403 });
@@ -49,6 +49,23 @@ export async function POST(req: NextRequest) {
   const result = db.prepare(
     "INSERT INTO event_helpers (entry_id, name, contact, note) VALUES (?, ?, ?, ?)"
   ).run(Number(entry_id), name.trim(), contact.trim(), note?.trim() || null);
+
+  // Schicht für diesen Event suchen oder anlegen, Helfer als unbestätigt eintragen
+  const task = entry.helpers_task || entry.title;
+  let shift = db.prepare(
+    "SELECT id FROM shifts WHERE tournament_id = ? AND date = ? AND start_time = ? AND end_time = ? AND task = ?"
+  ).get(entry.tournament_id, entry.date, entry.start_time, entry.end_time, task) as { id: number } | undefined;
+
+  if (!shift) {
+    const sr = db.prepare(
+      "INSERT INTO shifts (tournament_id, date, start_time, end_time, task, notes) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(entry.tournament_id, entry.date, entry.start_time, entry.end_time, task, "Automatisch aus Helfer-Anmeldung");
+    shift = { id: Number(sr.lastInsertRowid) };
+  }
+
+  db.prepare(
+    "INSERT INTO shift_assignments (shift_id, worker_name, attended, notes) VALUES (?, ?, 0, ?)"
+  ).run(shift.id, name.trim(), contact.trim());
 
   return NextResponse.json({ id: Number(result.lastInsertRowid) }, { status: 201 });
 }
