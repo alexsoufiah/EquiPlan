@@ -20,18 +20,20 @@ interface Tournament { id: number; name: string; location?: string; start_date?:
 // ── Phasen-Farben ─────────────────────────────────────────────────────────────
 // Liste-Ansicht (hell = besser lesbar auf dunklem Hintergrund)
 const PHASE_LIST: Record<string, { bg: string; border: string; text: string; label: string; dot: string }> = {
-  aufbau:    { bg: "bg-orange-900",  border: "border-orange-500",  text: "text-orange-100",  label: "Aufbau",    dot: "bg-orange-400" },
-  wettkampf: { bg: "bg-blue-900",    border: "border-blue-500",    text: "text-blue-100",    label: "Wettkampf", dot: "bg-blue-400" },
-  abbau:     { bg: "bg-purple-900",  border: "border-purple-500",  text: "text-purple-100",  label: "Abbau",     dot: "bg-purple-400" },
-  pause:     { bg: "bg-gray-800",    border: "border-gray-600",    text: "text-gray-200",    label: "Pause",     dot: "bg-gray-400" },
+  aufbau:       { bg: "bg-orange-900",  border: "border-orange-500",  text: "text-orange-100",  label: "Aufbau",       dot: "bg-orange-400" },
+  wettkampf:    { bg: "bg-blue-900",    border: "border-blue-500",    text: "text-blue-100",    label: "Wettkampf",    dot: "bg-blue-400" },
+  siegerehrung: { bg: "bg-yellow-900",  border: "border-yellow-500",  text: "text-yellow-100",  label: "Siegerehrung", dot: "bg-yellow-400" },
+  abbau:        { bg: "bg-purple-900",  border: "border-purple-500",  text: "text-purple-100",  label: "Abbau",        dot: "bg-purple-400" },
+  pause:        { bg: "bg-gray-800",    border: "border-gray-600",    text: "text-gray-200",    label: "Pause",        dot: "bg-gray-400" },
 };
 
 // Timeline-Ansicht
 const PHASE_TL: Record<string, { bg: string; border: string; text: string }> = {
-  aufbau:    { bg: "bg-orange-800", border: "border-l-orange-400", text: "text-orange-100" },
-  wettkampf: { bg: "bg-blue-800",   border: "border-l-blue-400",   text: "text-blue-100" },
-  abbau:     { bg: "bg-purple-800", border: "border-l-purple-400", text: "text-purple-100" },
-  pause:     { bg: "bg-gray-700",   border: "border-l-gray-400",   text: "text-gray-100" },
+  aufbau:       { bg: "bg-orange-800", border: "border-l-orange-400", text: "text-orange-100" },
+  wettkampf:    { bg: "bg-blue-800",   border: "border-l-blue-400",   text: "text-blue-100" },
+  siegerehrung: { bg: "bg-yellow-800", border: "border-l-yellow-400", text: "text-yellow-100" },
+  abbau:        { bg: "bg-purple-800", border: "border-l-purple-400", text: "text-purple-100" },
+  pause:        { bg: "bg-gray-700",   border: "border-l-gray-400",   text: "text-gray-100" },
 };
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────

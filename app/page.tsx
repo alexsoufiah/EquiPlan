@@ -19,10 +19,11 @@ interface ScheduleEntry {
 }
 
 const PHASE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  aufbau:    { label: "Aufbau",    color: "text-orange-700 dark:text-orange-300", bg: "bg-orange-100 dark:bg-[#1c1c2e]",  border: "border-orange-400 dark:border-orange-800/60" },
-  wettkampf: { label: "Wettkampf", color: "text-blue-700 dark:text-blue-300",     bg: "bg-blue-100 dark:bg-[#1c1c2e]",    border: "border-blue-400 dark:border-blue-800/60"     },
-  abbau:     { label: "Abbau",     color: "text-purple-700 dark:text-purple-300", bg: "bg-purple-100 dark:bg-[#1c1c2e]",  border: "border-purple-400 dark:border-purple-800/60" },
-  pause:     { label: "Pause",     color: "text-gray-600 dark:text-gray-400",     bg: "bg-gray-100 dark:bg-[#1c1c2e]",    border: "border-gray-400 dark:border-gray-700/60"     },
+  aufbau:        { label: "Aufbau",        color: "text-orange-700 dark:text-orange-300", bg: "bg-orange-100 dark:bg-[#1c1c2e]",  border: "border-orange-400 dark:border-orange-800/60" },
+  wettkampf:     { label: "Wettkampf",     color: "text-blue-700 dark:text-blue-300",     bg: "bg-blue-100 dark:bg-[#1c1c2e]",    border: "border-blue-400 dark:border-blue-800/60"     },
+  siegerehrung:  { label: "Siegerehrung",  color: "text-yellow-700 dark:text-yellow-300", bg: "bg-yellow-100 dark:bg-[#1c1c2e]",  border: "border-yellow-500 dark:border-yellow-700/60" },
+  abbau:         { label: "Abbau",         color: "text-purple-700 dark:text-purple-300", bg: "bg-purple-100 dark:bg-[#1c1c2e]",  border: "border-purple-400 dark:border-purple-800/60" },
+  pause:         { label: "Pause",         color: "text-gray-600 dark:text-gray-400",     bg: "bg-gray-100 dark:bg-[#1c1c2e]",    border: "border-gray-400 dark:border-gray-700/60"     },
 };
 
 function formatDate(d: string) {
@@ -1004,10 +1005,11 @@ function toMinutes(time: string): number {
 }
 
 const PHASE_TIMELINE: Record<string, { bg: string; border: string; text: string }> = {
-  aufbau:    { bg: "bg-orange-100 dark:bg-orange-900/40", border: "border-orange-400", text: "text-orange-800 dark:text-orange-200" },
-  wettkampf: { bg: "bg-blue-100 dark:bg-blue-900/40",   border: "border-blue-400",   text: "text-blue-800 dark:text-blue-200" },
-  abbau:     { bg: "bg-purple-100 dark:bg-purple-900/40", border: "border-purple-400", text: "text-purple-800 dark:text-purple-200" },
-  pause:     { bg: "bg-gray-100 dark:bg-gray-700",       border: "border-gray-300 dark:border-gray-500",   text: "text-gray-600 dark:text-gray-300" },
+  aufbau:       { bg: "bg-orange-100 dark:bg-orange-900/40",  border: "border-orange-400",                          text: "text-orange-800 dark:text-orange-200" },
+  wettkampf:    { bg: "bg-blue-100 dark:bg-blue-900/40",      border: "border-blue-400",                            text: "text-blue-800 dark:text-blue-200" },
+  siegerehrung: { bg: "bg-yellow-100 dark:bg-yellow-900/40",  border: "border-yellow-500",                          text: "text-yellow-800 dark:text-yellow-200" },
+  abbau:        { bg: "bg-purple-100 dark:bg-purple-900/40",  border: "border-purple-400",                          text: "text-purple-800 dark:text-purple-200" },
+  pause:        { bg: "bg-gray-100 dark:bg-gray-700",         border: "border-gray-300 dark:border-gray-500",       text: "text-gray-600 dark:text-gray-300" },
 };
 
 function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEntry[]; selectedDate: string; session: AppSession | null }) {
