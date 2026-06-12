@@ -5,6 +5,9 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomBytes } from "crypto";
 
+export const maxDuration = 30;
+export const dynamic = "force-dynamic";
+
 const DB_DIR = process.env.DB_DIR ?? path.join(process.cwd(), "data");
 const UPLOAD_DIR = path.join(DB_DIR, "uploads");
 
