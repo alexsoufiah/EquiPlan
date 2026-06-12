@@ -754,6 +754,24 @@ export default function App() {
     }
   }, [selectedDate, loadEntries]);
 
+  // Auto-Refresh: alle 30s + sofort beim Zurückkommen in den Tab
+  useEffect(() => {
+    if (!session || !activeTournamentRef.current) return;
+    const tick = () => {
+      if (activeTournamentRef.current) loadEntries(activeTournamentRef.current.id, selectedDate);
+    };
+    const interval = setInterval(tick, 30_000);
+    const onVisible = () => { if (!document.hidden) tick(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", tick);
+    };
+  // selectedDate über Ref lesen würde staler Wert sein — darum als Dep
+  }, [session, selectedDate, loadEntries]);
+
   async function handleLogin(s: AppSession) {
     setSession(s);
     // Show-Admin: direkt zum eigenen Turnier

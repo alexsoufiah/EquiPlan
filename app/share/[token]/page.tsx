@@ -225,12 +225,24 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     ));
   }
 
-  // Tick alle 30s für LIVE/done-Update
-  const [, setTick] = useState(0);
+  // Auto-Refresh: alle 30s neue Daten + sofort beim Zurückkommen
+  const selectedDateRef = useRef(selectedDate);
+  const selectedArenaRef = useRef(selectedArena);
+  useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
+  useEffect(() => { selectedArenaRef.current = selectedArena; }, [selectedArena]);
+
   useEffect(() => {
-    const t = setInterval(() => setTick(x => x + 1), 30000);
-    return () => clearInterval(t);
-  }, []);
+    const tick = () => load(selectedArenaRef.current, selectedDateRef.current || undefined);
+    const interval = setInterval(tick, 30_000);
+    const onVisible = () => { if (!document.hidden) tick(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", tick);
+    };
+  }, [load]);
 
   const load = useCallback(async (arenaId?: number | null, date?: string) => {
     const p = new URLSearchParams();
