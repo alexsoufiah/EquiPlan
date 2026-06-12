@@ -1,12 +1,12 @@
 import { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.equiplan.app",
+  appId: "com.soufiah.equiplan",
   appName: "EquiPlan",
   webDir: "out",
   server: {
     // Railway-URL hier eintragen, sobald deployed (z.B. https://equiplan.up.railway.app)
-    url: "https://equiplan.up.railway.app",
+    url: "https://equiplan-production.up.railway.app",  // deine echte URL
     cleartext: false,
   },
   ios: {
