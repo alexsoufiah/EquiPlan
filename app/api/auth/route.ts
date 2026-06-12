@@ -9,11 +9,24 @@ export async function POST(req: NextRequest) {
   const { viewerHash, adminHash } = getPasswords();
   const db = getDb();
 
-  // Admin
+  // Haupt-Admin (legacy password)
   if (adminHash && await verifyPassword(password, adminHash)) {
     const token = await createToken({ role: "admin" });
     (await cookies()).set("session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" });
     return NextResponse.json({ role: "admin" });
+  }
+
+  // Show-Admins (aus admins-Tabelle)
+  const admins = db.prepare("SELECT id, name, password_hash, tournament_id FROM admins").all() as { id: number; name: string; password_hash: string; tournament_id: number | null }[];
+  for (const admin of admins) {
+    if (await verifyPassword(password, admin.password_hash)) {
+      const session = admin.tournament_id === null
+        ? { role: "admin" as const, adminId: admin.id, adminName: admin.name }
+        : { role: "admin" as const, adminId: admin.id, adminName: admin.name, adminTournamentId: admin.tournament_id };
+      const token = await createToken(session);
+      (await cookies()).set("session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" });
+      return NextResponse.json({ role: "admin", adminName: admin.name, adminTournamentId: admin.tournament_id ?? undefined });
+    }
   }
 
   // Viewer

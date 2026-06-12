@@ -14,6 +14,8 @@ interface ScheduleEntry {
   notes?: string; arena_name?: string; external_source?: string;
   speaker_name?: string; speaker_role?: string; speaker_color?: string;
   teams: { id: number; name: string }[];
+  helpers_needed?: number;
+  helpers_task?: string;
 }
 
 const PHASE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -64,7 +66,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
     const res = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
     if (res.ok) {
       const data = await res.json();
-      onLogin({ role: data.role, teamId: data.teamId, teamName: data.teamName, speakerId: data.speakerId, speakerName: data.speakerName, speakerRole: data.speakerRole, speakerColor: data.speakerColor });
+      onLogin({ role: data.role, teamId: data.teamId, teamName: data.teamName, speakerId: data.speakerId, speakerName: data.speakerName, speakerRole: data.speakerRole, speakerColor: data.speakerColor, adminName: data.adminName, adminTournamentId: data.adminTournamentId });
     } else {
       setError("Falsches Passwort");
     }
@@ -389,94 +391,277 @@ function isEntryDone(entry: ScheduleEntry): boolean {
   return end < now;
 }
 
-function EntryCard({ entry, myTeamId }: { entry: ScheduleEntry; myTeamId?: number }) {
+function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamId?: number; session?: AppSession | null }) {
+  const [open, setOpen] = useState(false);
   const done = isEntryDone(entry);
   const isMyTeam = myTeamId != null && entry.teams?.some(t => t.id === myTeamId);
   const phase = PHASE_CONFIG[entry.phase] ?? PHASE_CONFIG.pause;
 
-  if (done) {
-    return (
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 opacity-50 space-y-1">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <span className="font-semibold text-gray-400 line-through">
-              {entry.pruefungs_id && <span className="font-normal mr-1">{entry.pruefungs_id}</span>}
-              {entry.title}
-            </span>
-            <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium text-gray-400 bg-white border border-gray-200">
-              {phase.label} · Abgeschlossen
-            </span>
+  const cardContent = (
+    <>
+      {done ? (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 opacity-50 space-y-1 cursor-pointer hover:opacity-70 transition-opacity">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <span className="font-semibold text-gray-400 line-through">
+                {entry.pruefungs_id && <span className="font-normal mr-1">{entry.pruefungs_id}</span>}
+                {entry.title}
+              </span>
+              <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium text-gray-400 bg-white border border-gray-200">
+                {phase.label} · Abgeschlossen
+              </span>
+            </div>
+            <span className="text-sm font-mono text-gray-400 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
           </div>
-          <span className="text-sm font-mono text-gray-400 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
-        </div>
-        <div className="flex flex-wrap gap-2 text-xs text-gray-400">
-          {entry.arena_name && <span className="bg-white border border-gray-200 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
-          {entry.teams?.map(t => <span key={t.id} className="bg-white border border-gray-200 rounded px-2 py-0.5">👥 {t.name}</span>)}
-        </div>
-      </div>
-    );
-  }
-
-  if (isMyTeam) {
-    return (
-      <div className={`rounded-xl border-l-4 border-violet-500 bg-violet-50 p-3 space-y-1 ring-2 ring-violet-300 shadow-md`}>
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <span className="font-bold text-violet-900">
-              {entry.pruefungs_id && <span className="text-violet-400 font-normal mr-1">{entry.pruefungs_id}</span>}
-              {entry.title}
-            </span>
-            <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white border ${phase.border}`}>{phase.label}</span>
-            <span className="ml-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-violet-600 text-white">Ihr Einsatz</span>
+          <div className="flex flex-wrap gap-2 text-xs text-gray-400">
+            {entry.arena_name && <span className="bg-white border border-gray-200 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
+            {entry.teams?.map(t => <span key={t.id} className="bg-white border border-gray-200 rounded px-2 py-0.5">👥 {t.name}</span>)}
           </div>
-          <span className="text-sm font-mono font-bold text-violet-700 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          {entry.arena_name && <span className="bg-white border border-violet-200 rounded px-2 py-0.5 text-violet-700">📍 {entry.arena_name}</span>}
-          {entry.teams?.map(t => (
-            <span key={t.id} className={`rounded px-2 py-0.5 border ${t.id === myTeamId ? "bg-violet-600 text-white border-violet-600 font-semibold" : "bg-white border-gray-200 text-gray-600"}`}>
-              👥 {t.name}
-            </span>
-          ))}
-          {entry.speaker_name && (
-            <span className="rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
-              🎙 {entry.speaker_name} ({entry.speaker_role})
-            </span>
+      ) : isMyTeam ? (
+        <div className="rounded-xl border-l-4 border-violet-500 bg-violet-50 p-3 space-y-1 ring-2 ring-violet-300 shadow-md cursor-pointer hover:brightness-95 transition">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <span className="font-bold text-violet-900">
+                {entry.pruefungs_id && <span className="text-violet-400 font-normal mr-1">{entry.pruefungs_id}</span>}
+                {entry.title}
+              </span>
+              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white border ${phase.border}`}>{phase.label}</span>
+              <span className="ml-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-violet-600 text-white">Ihr Einsatz</span>
+            </div>
+            <span className="text-sm font-mono font-bold text-violet-700 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {entry.arena_name && <span className="bg-white border border-violet-200 rounded px-2 py-0.5 text-violet-700">📍 {entry.arena_name}</span>}
+            {entry.teams?.map(t => (
+              <span key={t.id} className={`rounded px-2 py-0.5 border ${t.id === myTeamId ? "bg-violet-600 text-white border-violet-600 font-semibold" : "bg-white border-gray-200 text-gray-600"}`}>
+                👥 {t.name}
+              </span>
+            ))}
+            {entry.speaker_name && (
+              <span className="rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
+                🎙 {entry.speaker_name} ({entry.speaker_role})
+              </span>
+            )}
+          </div>
+          {entry.notes && <p className="text-xs text-violet-700 mt-1 italic">{entry.notes}</p>}
+        </div>
+      ) : (
+        <div className={`rounded-xl border-l-4 ${phase.border} ${phase.bg} p-3 space-y-1 cursor-pointer hover:brightness-95 transition`}>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <span className="font-semibold text-gray-800">
+                {entry.pruefungs_id && <span className="text-gray-400 font-normal mr-1">{entry.pruefungs_id}</span>}
+                {entry.title}
+              </span>
+              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white border ${phase.border}`}>{phase.label}</span>
+            </div>
+            <span className="text-sm font-mono text-gray-500 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+            {entry.arena_name && <span className="bg-white border border-gray-200 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
+            {entry.teams?.map(t => <span key={t.id} className="bg-white border border-gray-200 rounded px-2 py-0.5">👥 {t.name}</span>)}
+            {entry.speaker_name && (
+              <span className="rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
+                🎙 {entry.speaker_name} ({entry.speaker_role})
+              </span>
+            )}
+          </div>
+          {entry.external_source && <span className="text-xs bg-gray-100 border border-gray-200 rounded px-2 py-0.5 text-gray-400">via {entry.external_source}</span>}
+          {entry.notes && <p className="text-xs text-gray-500 mt-1 italic">{entry.notes}</p>}
+          {(entry.helpers_needed ?? 0) > 0 && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 w-fit mt-1">
+              🙋 {entry.helpers_needed} Helfer gesucht{entry.helpers_task ? ` · ${entry.helpers_task}` : ""}
+            </p>
           )}
         </div>
-        {entry.notes && <p className="text-xs text-violet-700 mt-1 italic">{entry.notes}</p>}
-      </div>
-    );
-  }
+      )}
+    </>
+  );
 
   return (
-    <div className={`rounded-xl border-l-4 ${phase.border} ${phase.bg} p-3 space-y-1`}>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <span className="font-semibold text-gray-800">
-            {entry.pruefungs_id && <span className="text-gray-400 font-normal mr-1">{entry.pruefungs_id}</span>}
-            {entry.title}
-          </span>
-          <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white border ${phase.border}`}>{phase.label}</span>
+    <>
+      <div onClick={() => setOpen(true)}>{cardContent}</div>
+      {open && <EntryDetailModal entry={entry} session={session ?? null} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+interface HelperEntry { id: number; name: string; contact: string; note?: string; signed_up_at: string; }
+
+function PdfFullscreen({ doc, onClose }: { doc: DocMeta; onClose: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-[5vh_5vw]" style={{ background: "rgba(0,0,0,0.75)" }}>
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative w-full h-full max-w-[90vw] max-h-[90vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shrink-0 rounded-t-2xl">
+          <p className="font-medium text-sm text-gray-800 dark:text-gray-100 truncate flex-1">{doc.original_name}</p>
+          <div className="flex items-center gap-3 shrink-0 ml-3">
+            <a href={`/api/documents/${doc.id}`} download={doc.original_name}
+              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline border border-indigo-200 dark:border-indigo-700 px-3 py-1 rounded-lg transition">
+              ⬇ Download
+            </a>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none transition">✕</button>
+          </div>
         </div>
-        <span className="text-sm font-mono text-gray-500 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
+        <iframe src={`/api/documents/${doc.id}`} className="flex-1 w-full rounded-b-2xl" title={doc.original_name} />
       </div>
-      <div className="flex flex-wrap gap-2 text-xs text-gray-600">
-        {entry.arena_name && <span className="bg-white border border-gray-200 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
-        {entry.teams?.map(t => <span key={t.id} className="bg-white border border-gray-200 rounded px-2 py-0.5">👥 {t.name}</span>)}
-        {entry.speaker_name && (
-          <span className="rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
-            🎙 {entry.speaker_name} ({entry.speaker_role})
-          </span>
-        )}
-      </div>
-      {entry.external_source && <span className="text-xs bg-gray-100 border border-gray-200 rounded px-2 py-0.5 text-gray-400">via {entry.external_source}</span>}
-      {entry.notes && <p className="text-xs text-gray-500 mt-1 italic">{entry.notes}</p>}
     </div>
   );
 }
 
-interface AppSession { role: string; teamId?: number; teamName?: string; speakerId?: number; speakerName?: string; speakerRole?: string; speakerColor?: string; }
+function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; session: AppSession | null; onClose: () => void }) {
+  const phase = PHASE_CONFIG[entry.phase] ?? PHASE_CONFIG.pause;
+  const [docs, setDocs] = useState<DocMeta[]>([]);
+  const [fullscreenDoc, setFullscreenDoc] = useState<DocMeta | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [helpers, setHelpers] = useState<HelperEntry[]>([]);
+
+  const loadHelpers = useCallback(async () => {
+    if (session?.role !== "admin" && session?.role !== "viewer") return;
+    const r = await fetch(`/api/helpers?entry_id=${entry.id}`);
+    if (r.ok) setHelpers(await r.json());
+  }, [entry.id, session?.role]);
+
+  useEffect(() => { loadHelpers(); }, [loadHelpers]);
+
+  async function removeHelper(id: number) {
+    await fetch("/api/helpers", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setHelpers(prev => prev.filter(h => h.id !== id));
+  }
+
+  const loadDocs = useCallback(async () => {
+    const r = await fetch(`/api/documents?entry_id=${entry.id}`);
+    if (r.ok) setDocs(await r.json());
+  }, [entry.id]);
+
+  useEffect(() => { loadDocs(); }, [loadDocs]);
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError(""); setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("entry_id", String(entry.id));
+    const r = await fetch("/api/documents", { method: "POST", body: fd });
+    if (!r.ok) { const d = await r.json(); setUploadError(d.error || "Upload fehlgeschlagen"); }
+    else await loadDocs();
+    setUploading(false);
+    e.target.value = "";
+  }
+
+  async function removeDoc(id: number, name: string) {
+    if (!confirm(`"${name}" wirklich löschen?`)) return;
+    await fetch("/api/documents", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setDocs(prev => prev.filter(d => d.id !== id));
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white dark:bg-gray-900 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${phase.bg} dark:bg-gray-800`}>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white border ${phase.border} mr-2`}>{phase.label}</span>
+              <h2 className="font-bold text-gray-900 dark:text-gray-100 text-lg mt-1">
+                {entry.pruefungs_id && <span className="text-gray-400 font-normal mr-1 text-sm">{entry.pruefungs_id}</span>}
+                {entry.title}
+              </h2>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none shrink-0">✕</button>
+          </div>
+          <p className="text-sm font-mono text-gray-600 dark:text-gray-400 mt-1">{entry.start_time} – {entry.end_time}</p>
+        </div>
+
+        {/* Details */}
+        <div className="p-4 space-y-3">
+          <div className="flex flex-wrap gap-2 text-sm">
+            {entry.arena_name && <span className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1">📍 {entry.arena_name}</span>}
+            {entry.teams?.map(t => <span key={t.id} className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1">👥 {t.name}</span>)}
+            {entry.speaker_name && (
+              <span className="rounded-lg px-3 py-1 text-white text-sm" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
+                🎙 {entry.speaker_name} {entry.speaker_role && `(${entry.speaker_role})`}
+              </span>
+            )}
+          </div>
+          {entry.notes && <p className="text-sm text-gray-600 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-800 rounded-lg p-3">{entry.notes}</p>}
+          {entry.external_source && <p className="text-xs text-gray-400">Quelle: {entry.external_source}</p>}
+        </div>
+
+        {/* Helfer */}
+        {(entry.helpers_needed ?? 0) > 0 && (session?.role === "admin" || session?.role === "viewer") && (
+          <div className="px-4 pb-4 space-y-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Helfer</h3>
+                {entry.helpers_task && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Aufgabe: {entry.helpers_task}</p>}
+              </div>
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${helpers.length >= (entry.helpers_needed ?? 0) ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                {helpers.length} / {entry.helpers_needed} besetzt
+              </span>
+            </div>
+            {helpers.length === 0 && <p className="text-sm text-gray-400">Noch keine Anmeldungen.</p>}
+            {helpers.map(h => (
+              <div key={h.id} className="flex items-start gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg p-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{h.name}</p>
+                  <p className="text-xs text-gray-500">{h.contact}</p>
+                  {h.note && <p className="text-xs text-gray-400 italic">{h.note}</p>}
+                </div>
+                <span className="text-xs text-gray-400 shrink-0">{new Date(h.signed_up_at).toLocaleDateString("de-DE")}</span>
+                {session?.role === "admin" && (
+                  <button onClick={() => removeHelper(h.id)} className="text-xs text-red-500 hover:underline shrink-0">✕</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Dokumente */}
+        <div className="px-4 pb-4 space-y-3 border-t border-gray-100 dark:border-gray-700 pt-3">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Dokumente</h3>
+
+          {docs.map(doc => (
+            <div key={doc.id} className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-2 p-3">
+              <span className="text-lg shrink-0">📄</span>
+              <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{doc.original_name}</span>
+              <button onClick={() => setFullscreenDoc(doc)}
+                className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition shrink-0">
+                Öffnen
+              </button>
+              {session?.role === "admin" && (
+                <button onClick={() => removeDoc(doc.id, doc.original_name)} className="text-xs text-red-500 hover:underline shrink-0">Löschen</button>
+              )}
+            </div>
+          ))}
+
+          {docs.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">Keine Dokumente hinterlegt.</p>}
+
+          {session?.role === "admin" && (
+            <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition ${uploading ? "bg-gray-300 text-gray-500" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
+              {uploading ? "Hochladen…" : "📄 PDF hinzufügen"}
+              <input type="file" accept="application/pdf" className="hidden" disabled={uploading} onChange={upload} />
+            </label>
+          )}
+          {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}
+        </div>
+      </div>
+      {fullscreenDoc && <PdfFullscreen doc={fullscreenDoc} onClose={() => setFullscreenDoc(null)} />}
+    </div>
+  );
+}
+
+interface AppSession { role: string; teamId?: number; teamName?: string; speakerId?: number; speakerName?: string; speakerRole?: string; speakerColor?: string; adminName?: string; adminTournamentId?: number; }
 type AppView = "tournament-select" | "schedule" | "admin";
 
 export default function App() {
@@ -536,6 +721,16 @@ export default function App() {
 
   async function handleLogin(s: AppSession) {
     setSession(s);
+    // Show-Admin: direkt zum eigenen Turnier
+    if (s.role === "admin" && s.adminTournamentId) {
+      const res = await fetch("/api/tournaments");
+      if (res.ok) {
+        const all: Tournament[] = await res.json();
+        setTournaments(all);
+        const mine = all.find(t => t.id === s.adminTournamentId);
+        if (mine) setActiveTournament(mine);
+      }
+    }
     const seen = localStorage.getItem(ONBOARDING_KEY + "-" + s.role);
     if (!seen) setShowOnboarding(true);
   }
@@ -569,7 +764,7 @@ export default function App() {
               <h1 className="font-bold text-lg leading-tight tracking-tight">
                 <span className="text-white">Equi</span><span className="text-violet-300">Plan</span>
               </h1>
-              <button onClick={() => setView("tournament-select")} className="flex items-center gap-1 text-indigo-200 hover:text-white text-xs transition truncate max-w-[200px]">
+              <button onClick={() => !session?.adminTournamentId && setView("tournament-select")} className={`flex items-center gap-1 text-xs transition truncate max-w-[200px] ${session?.adminTournamentId ? "text-indigo-300 cursor-default" : "text-indigo-200 hover:text-white"}`}>
                 <Trophy size={11} className="shrink-0" />
                 <span className="truncate">{activeTournament.name}</span>
                 <ChevronDown size={11} className="shrink-0" />
@@ -577,6 +772,11 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {session?.role === "admin" && session.adminName && (
+              <span className="text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:block">
+                {session.adminTournamentId ? "🎪" : "⭐"} {session.adminName}
+              </span>
+            )}
             {session?.role === "team" && <span className="text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:block">👥 {session.teamName}</span>}
             {session?.role === "speaker" && (
               <span className="text-xs px-2 py-0.5 rounded-full mr-1 hidden sm:block font-medium text-white" style={{ backgroundColor: session.speakerColor || "#6366f1" }}>
@@ -614,8 +814,8 @@ export default function App() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
-        {view === "schedule" && <ScheduleTab entries={entries} selectedDate={selectedDate} setSelectedDate={setSelectedDate} session={session} onRefresh={() => loadEntries(activeTournament.id, selectedDate)} />}
-        {view === "admin" && <AdminTab onRefresh={() => loadEntries(activeTournament.id, selectedDate)} activeTournamentId={activeTournament.id} />}
+        {view === "schedule" && <ScheduleTab entries={entries} selectedDate={selectedDate} setSelectedDate={setSelectedDate} session={session} onRefresh={() => loadEntries(activeTournament.id, selectedDate)} activeTournamentId={activeTournament.id} />}
+        {view === "admin" && <AdminTab onRefresh={() => loadEntries(activeTournament.id, selectedDate)} activeTournamentId={activeTournament.id} session={session} />}
       </main>
     </div>
   );
@@ -876,11 +1076,22 @@ function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEnt
   );
 }
 
-function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefresh }: {
-  entries: ScheduleEntry[]; selectedDate: string; setSelectedDate: (d: string) => void; session: AppSession | null; onRefresh: () => void;
+function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefresh, activeTournamentId }: {
+  entries: ScheduleEntry[]; selectedDate: string; setSelectedDate: (d: string) => void; session: AppSession | null; onRefresh: () => void; activeTournamentId?: number;
 }) {
   void onRefresh;
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
+  const canFilterOwn = session?.role === "team" || session?.role === "speaker";
+  const [showOnlyMine, setShowOnlyMine] = useState(canFilterOwn);
+
+  const filteredEntries = showOnlyMine && canFilterOwn
+    ? entries.filter(e => {
+        if (session?.role === "team") return e.teams.some(t => t.id === session.teamId);
+        if (session?.role === "speaker") return e.speaker_id === session.speakerId;
+        return true;
+      })
+    : entries;
+
   const myTeamId = session?.teamId;
   return (
     <div>
@@ -911,42 +1122,61 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
         </button>
       </div>
 
-      {/* Ansicht-Umschalter */}
-      <div className="flex gap-1 mb-4 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit border border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => setViewMode("list")}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "list" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-        >
-          ≡ Liste
-        </button>
-        <button
-          onClick={() => setViewMode("timeline")}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "timeline" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
-        >
-          ▦ Zeitleiste
-        </button>
+      {/* Toolbar: Ansicht + Filter */}
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setViewMode("list")}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "list" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+          >
+            ≡ Liste
+          </button>
+          <button
+            onClick={() => setViewMode("timeline")}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "timeline" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+          >
+            ▦ Zeitleiste
+          </button>
+        </div>
+
+        {canFilterOwn && (
+          <button
+            onClick={() => setShowOnlyMine(v => !v)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+              showOnlyMine
+                ? "bg-violet-600 text-white border-violet-600"
+                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+          >
+            {showOnlyMine ? "👤 Nur meine Einsätze" : "👥 Alle Einträge"}
+          </button>
+        )}
       </div>
 
-      {entries.length === 0 ? (
+      {filteredEntries.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <div className="text-4xl mb-3">📋</div>
-          <p>Keine Einträge für diesen Tag.</p>
+          <p>{showOnlyMine && canFilterOwn ? "Keine eigenen Einsätze für diesen Tag." : "Keine Einträge für diesen Tag."}</p>
           {session?.role === "admin" && <p className="text-sm mt-1">Im ⚙️ Admin-Bereich Einträge anlegen.</p>}
-          {session?.role === "team" && <p className="text-sm mt-1 text-violet-600">Heute keine Einsätze für {session.teamName}.</p>}
+          {session?.role === "team" && showOnlyMine && <p className="text-sm mt-1 text-violet-600">Heute keine Einsätze für {session.teamName}.</p>}
         </div>
       ) : viewMode === "list" ? (
         <div className="space-y-2">
-          {entries.map(e => <EntryCard key={e.id} entry={e} myTeamId={myTeamId} />)}
+          {filteredEntries.map(e => <EntryCard key={e.id} entry={e} myTeamId={myTeamId} session={session} />)}
         </div>
       ) : (
-        <TimelineView entries={entries} selectedDate={selectedDate} session={session} />
+        <TimelineView entries={filteredEntries} selectedDate={selectedDate} session={session} />
       )}
+
+      {/* Dokumente */}
+      {activeTournamentId && <DocumentsViewer tournamentId={activeTournamentId} />}
     </div>
   );
 }
 
-function AdminTab({ onRefresh, activeTournamentId }: { onRefresh: () => void; activeTournamentId?: number }) {
-  const [tab, setTab] = useState<"entries" | "speakers" | "arenas" | "teams" | "settings" | "api" | "share" | "inquiries">("entries");
+function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () => void; activeTournamentId?: number; session: AppSession | null }) {
+  const isSuperAdmin = !session?.adminTournamentId;
+  const [tab, setTab] = useState<"entries" | "speakers" | "arenas" | "teams" | "settings" | "api" | "share" | "inquiries" | "documents" | "admins">("entries");
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [arenas, setArenas] = useState<Arena[]>([]);
@@ -993,6 +1223,8 @@ function AdminTab({ onRefresh, activeTournamentId }: { onRefresh: () => void; ac
     { key: "api", label: "API-Zugang" },
     { key: "share", label: "Share-Link" },
     { key: "inquiries", label: "Anfragen" },
+    { key: "documents", label: "📄 Dokumente" },
+    ...(isSuperAdmin ? [{ key: "admins" as const, label: "👥 Admins" }] : []),
   ] as const;
 
   return (
@@ -1019,7 +1251,7 @@ function AdminTab({ onRefresh, activeTournamentId }: { onRefresh: () => void; ac
           </div>
           {entries.map(e => (
             <div key={e.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-start gap-3">
-              <div className="flex-1"><EntryCard entry={e} /></div>
+              <div className="flex-1"><EntryCard entry={e} session={{ role: "admin" }} /></div>
               <div className="flex flex-col gap-1 shrink-0">
                 <button onClick={() => { setEditEntry(e); setShowForm(true); }}
                   className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100">Bearbeiten</button>
@@ -1038,6 +1270,8 @@ function AdminTab({ onRefresh, activeTournamentId }: { onRefresh: () => void; ac
       {tab === "api" && <ApiKeySettings />}
       {tab === "share" && <ShareTab tournamentId={activeTournamentId} />}
       {tab === "inquiries" && <InquiriesTab />}
+      {tab === "documents" && <DocumentsAdminTab tournamentId={activeTournamentId} />}
+      {tab === "admins" && isSuperAdmin && <AdminsTab />}
 
       {showForm && (
         <EntryForm
@@ -1117,6 +1351,44 @@ function EntryForm({ entry, speakers, arenas, teams, onSave, onClose }: {
           <Field label="Notizen">
             <textarea value={form.notes ?? ""} onChange={e => set("notes", e.target.value)} className={inputClass} rows={2} placeholder="Optionale Hinweise..." />
           </Field>
+          <div className="border border-gray-200 dark:border-gray-600 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Helfer benötigt</p>
+                <p className="text-xs text-gray-400">Externe können sich über den Share-Link anmelden</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => set("helpers_needed", (form.helpers_needed ?? 0) > 0 ? 0 : 1)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(form.helpers_needed ?? 0) > 0 ? "bg-indigo-600" : "bg-gray-300 dark:bg-gray-600"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(form.helpers_needed ?? 0) > 0 ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+            {(form.helpers_needed ?? 0) > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-gray-600 dark:text-gray-300">Anzahl benötigt:</label>
+                  <input
+                    type="number" min={1} max={99}
+                    value={form.helpers_needed ?? 1}
+                    onChange={e => set("helpers_needed", Math.max(1, Number(e.target.value)))}
+                    className={`${inputClass} w-20`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600 dark:text-gray-300 block mb-1">Aufgabe der Helfer</label>
+                  <input
+                    type="text"
+                    value={form.helpers_task ?? ""}
+                    onChange={e => set("helpers_task", e.target.value || undefined)}
+                    placeholder="z.B. Aufbau der Hindernisse, Einlassdienst..."
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex gap-3 justify-end">
           <button onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
@@ -1548,6 +1820,244 @@ function PasswordSettings() {
         {saved ? "✓ Gespeichert" : "Speichern"}
       </button>
       <p className="text-xs text-gray-400">Standard-Passwörter: viewer123 / admin123</p>
+    </div>
+  );
+}
+
+// ── Dokumente: Admin-Upload ───────────────────────────────────────────────────
+interface DocMeta { id: number; original_name: string; size: number; uploaded_at: string; entry_id?: number; tournament_id?: number; }
+
+function DocUploadButton({ onUploaded, tournamentId, label }: { onUploaded: () => void; tournamentId?: number; label: string }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(""); setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    if (tournamentId) fd.append("tournament_id", String(tournamentId));
+    const r = await fetch("/api/documents", { method: "POST", body: fd });
+    if (!r.ok) { const d = await r.json(); setError(d.error || "Upload fehlgeschlagen"); }
+    else onUploaded();
+    setUploading(false);
+    e.target.value = "";
+  }
+
+  return (
+    <div>
+      <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition ${uploading ? "bg-gray-300 text-gray-500" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
+        {uploading ? "Hochladen…" : `📄 ${label}`}
+        <input type="file" accept="application/pdf" className="hidden" disabled={uploading} onChange={upload} />
+      </label>
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  );
+}
+
+function DocList({ docs, onDelete }: { docs: DocMeta[]; onDelete: (id: number, name: string) => void }) {
+  if (docs.length === 0) return <p className="text-sm text-gray-400 dark:text-gray-500 py-2">Keine Dokumente.</p>;
+  return (
+    <div className="space-y-2 mt-3">
+      {docs.map(doc => (
+        <div key={doc.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
+          <span className="text-base shrink-0">📄</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{doc.original_name}</p>
+            <p className="text-xs text-gray-400">{(doc.size / 1024).toFixed(0)} KB · {new Date(doc.uploaded_at).toLocaleDateString("de-DE")}</p>
+          </div>
+          <a href={`/api/documents/${doc.id}`} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline shrink-0">Öffnen</a>
+          <button onClick={() => onDelete(doc.id, doc.original_name)} className="text-xs text-red-500 hover:underline shrink-0">Löschen</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DocumentsAdminTab({ tournamentId }: { tournamentId?: number }) {
+  const [generalDocs, setGeneralDocs] = useState<DocMeta[]>([]);
+  const [tournamentDocs, setTournamentDocs] = useState<DocMeta[]>([]);
+
+  const loadGeneral = useCallback(async () => {
+    const r = await fetch("/api/documents?scope=general");
+    if (r.ok) setGeneralDocs(await r.json());
+  }, []);
+
+  const loadTournament = useCallback(async () => {
+    if (!tournamentId) return;
+    const r = await fetch(`/api/documents?tournament_id=${tournamentId}`);
+    if (r.ok) setTournamentDocs(await r.json());
+  }, [tournamentId]);
+
+  useEffect(() => { loadGeneral(); loadTournament(); }, [loadGeneral, loadTournament]);
+
+  async function remove(id: number, name: string, setter: React.Dispatch<React.SetStateAction<DocMeta[]>>) {
+    if (!confirm(`"${name}" wirklich löschen?`)) return;
+    await fetch("/api/documents", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setter(prev => prev.filter(d => d.id !== id));
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Allgemeine Dokumente */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-semibold text-gray-700 dark:text-gray-200">Allgemeine Dokumente</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Sichtbar bei allen Turnieren</p>
+          </div>
+          <DocUploadButton onUploaded={loadGeneral} label="Hochladen" />
+        </div>
+        <DocList docs={generalDocs} onDelete={(id, n) => remove(id, n, setGeneralDocs)} />
+      </div>
+
+      {/* Turnierspezifische Dokumente */}
+      {tournamentId && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="font-semibold text-gray-700 dark:text-gray-200">Turnier-Dokumente</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Nur bei diesem Turnier sichtbar</p>
+            </div>
+            <DocUploadButton onUploaded={loadTournament} tournamentId={tournamentId} label="Hochladen" />
+          </div>
+          <DocList docs={tournamentDocs} onDelete={(id, n) => remove(id, n, setTournamentDocs)} />
+        </div>
+      )}
+
+      <p className="text-xs text-gray-400 text-center">Event-spezifische Dokumente: Eintrag in der Liste anklicken → „📄 PDF hinzufügen"</p>
+    </div>
+  );
+}
+
+// ── Dokumente: Viewer für alle Nutzer ─────────────────────────────────────────
+function DocumentsViewer({ tournamentId }: { tournamentId: number }) {
+  const [docs, setDocs] = useState<DocMeta[]>([]);
+  const [fullscreenDoc, setFullscreenDoc] = useState<DocMeta | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/documents?scope=general").then(r => r.ok ? r.json() : []),
+      fetch(`/api/documents?tournament_id=${tournamentId}`).then(r => r.ok ? r.json() : []),
+    ]).then(([general, tournament]) => setDocs([...general, ...tournament]));
+  }, [tournamentId]);
+
+  if (docs.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Dokumente</h3>
+      <div className="space-y-2">
+        {docs.map(doc => (
+          <button
+            key={doc.id}
+            onClick={() => setFullscreenDoc(doc)}
+            className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition text-left"
+          >
+            <span className="text-xl shrink-0">📄</span>
+            <span className="flex-1 font-medium text-gray-800 dark:text-gray-100 truncate">{doc.original_name}</span>
+            <span className="text-xs text-indigo-500 dark:text-indigo-400 shrink-0">Öffnen ↗</span>
+          </button>
+        ))}
+      </div>
+      {fullscreenDoc && <PdfFullscreen doc={fullscreenDoc} onClose={() => setFullscreenDoc(null)} />}
+    </div>
+  );
+}
+
+// ── Admins verwalten (nur Haupt-Admin) ───────────────────────────────────────
+interface AdminRecord { id: number; name: string; tournament_id: number | null; tournament_name: string | null; created_at: string; }
+
+function AdminsTab() {
+  const [admins, setAdmins] = useState<AdminRecord[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [form, setForm] = useState<{ name: string; password: string; tournament_id: string }>({ name: "", password: "", tournament_id: "" });
+  const [editId, setEditId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    const [a, t] = await Promise.all([
+      fetch("/api/admins").then(r => r.ok ? r.json() : []),
+      fetch("/api/tournaments").then(r => r.ok ? r.json() : []),
+    ]);
+    setAdmins(a); setTournaments(t);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save() {
+    if (!form.name.trim() || (!editId && !form.password.trim())) { setError("Name und Passwort erforderlich"); return; }
+    setSaving(true); setError("");
+    const body = { ...form, tournament_id: form.tournament_id ? Number(form.tournament_id) : null, ...(editId ? { id: editId } : {}) };
+    const r = await fetch("/api/admins", { method: editId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) { const d = await r.json(); setError(d.error || "Fehler"); }
+    else { setForm({ name: "", password: "", tournament_id: "" }); setEditId(null); await load(); }
+    setSaving(false);
+  }
+
+  async function remove(id: number, name: string) {
+    if (!confirm(`Admin "${name}" wirklich löschen?`)) return;
+    await fetch("/api/admins", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setAdmins(prev => prev.filter(a => a.id !== id));
+  }
+
+  function startEdit(a: AdminRecord) {
+    setEditId(a.id);
+    setForm({ name: a.name, password: "", tournament_id: a.tournament_id ? String(a.tournament_id) : "" });
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Formular */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-3">
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200">{editId ? "Admin bearbeiten" : "Neuen Admin anlegen"}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Name</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="z.B. Maria Müller" className={inputClass} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">{editId ? "Neues Passwort (leer = unverändert)" : "Passwort"}</label>
+            <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Passwort" className={inputClass} />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Zugriff</label>
+          <select value={form.tournament_id} onChange={e => setForm(f => ({ ...f, tournament_id: e.target.value }))} className={inputClass}>
+            <option value="">⭐ Haupt-Admin (alle Turniere)</option>
+            {tournaments.map(t => <option key={t.id} value={t.id}>🎪 Nur: {t.name}</option>)}
+          </select>
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex gap-2">
+          <button onClick={save} disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+            {saving ? "Speichern…" : editId ? "Aktualisieren" : "Anlegen"}
+          </button>
+          {editId && <button onClick={() => { setEditId(null); setForm({ name: "", password: "", tournament_id: "" }); }} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200">Abbrechen</button>}
+        </div>
+      </div>
+
+      {/* Liste */}
+      {admins.length === 0 && <p className="text-gray-400 text-center py-6">Noch keine zusätzlichen Admins angelegt.</p>}
+      <div className="space-y-2">
+        {admins.map(a => (
+          <div key={a.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center gap-3">
+            <div className="text-xl">{a.tournament_id ? "🎪" : "⭐"}</div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-800 dark:text-gray-100">{a.name}</p>
+              <p className="text-xs text-gray-400">
+                {a.tournament_id ? `Nur Turnier: ${a.tournament_name ?? a.tournament_id}` : "Haupt-Admin · alle Turniere"}
+              </p>
+            </div>
+            <button onClick={() => startEdit(a)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0">Bearbeiten</button>
+            <button onClick={() => remove(a.id, a.name)} className="text-xs text-red-500 hover:underline shrink-0">Löschen</button>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-gray-400">Tipp: Haupt-Admins sehen alle Turniere. Show-Admins werden nach dem Login direkt zu ihrem Turnier weitergeleitet.</p>
     </div>
   );
 }

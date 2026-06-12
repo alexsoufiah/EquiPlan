@@ -39,7 +39,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   if (arenaId) { query += " AND e.arena_id = ?"; args.push(Number(arenaId)); }
   query += " ORDER BY e.date, e.start_time";
 
-  const entries = db.prepare(query).all(...args);
+  const rawEntries = db.prepare(query).all(...args) as Record<string, unknown>[];
+
+  // Attach current helper signup count (no personal data exposed)
+  const entryIds = rawEntries.map(e => e.id as number);
+  const helperCounts: Record<number, number> = {};
+  if (entryIds.length > 0) {
+    const counts = db.prepare(
+      `SELECT entry_id, COUNT(*) as count FROM event_helpers WHERE entry_id IN (${entryIds.join(",")}) GROUP BY entry_id`
+    ).all() as { entry_id: number; count: number }[];
+    for (const c of counts) helperCounts[c.entry_id] = c.count;
+  }
+  const entries = rawEntries.map(e => ({ ...e, helpers_signed_up: helperCounts[e.id as number] ?? 0 }));
+
   const arenas = db.prepare(`
     SELECT DISTINCT a.id, a.name FROM arenas a
     JOIN schedule_entries e ON e.arena_id = a.id

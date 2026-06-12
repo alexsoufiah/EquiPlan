@@ -2,7 +2,8 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-const DB_DIR = path.join(process.cwd(), "data");
+// DB_PATH kann per Umgebungsvariable überschrieben werden (z.B. Railway-Volume)
+const DB_DIR = process.env.DB_DIR ?? path.join(process.cwd(), "data");
 const DB_PATH = path.join(DB_DIR, "pferdeplan.db");
 
 let db: Database.Database;
@@ -94,6 +95,25 @@ function initSchema(db: Database.Database) {
       description TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS admins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+      entry_id INTEGER REFERENCES schedule_entries(id) ON DELETE CASCADE,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL DEFAULT 'application/pdf',
+      size INTEGER NOT NULL DEFAULT 0,
+      uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrations
@@ -110,6 +130,24 @@ function initSchema(db: Database.Database) {
 
   const speakerCols = (db.prepare("PRAGMA table_info(speakers)").all() as { name: string }[]).map(c => c.name);
   if (!speakerCols.includes("password_hash")) db.exec("ALTER TABLE speakers ADD COLUMN password_hash TEXT");
+
+  const docCols = (db.prepare("PRAGMA table_info(documents)").all() as { name: string }[]).map(c => c.name);
+  if (!docCols.includes("entry_id")) db.exec("ALTER TABLE documents ADD COLUMN entry_id INTEGER REFERENCES schedule_entries(id) ON DELETE CASCADE");
+
+  const entryCols2 = (db.prepare("PRAGMA table_info(schedule_entries)").all() as { name: string }[]).map(c => c.name);
+  if (!entryCols2.includes("helpers_needed")) db.exec("ALTER TABLE schedule_entries ADD COLUMN helpers_needed INTEGER NOT NULL DEFAULT 0");
+  if (!entryCols2.includes("helpers_task")) db.exec("ALTER TABLE schedule_entries ADD COLUMN helpers_task TEXT");
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS event_helpers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entry_id INTEGER NOT NULL REFERENCES schedule_entries(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      contact TEXT NOT NULL,
+      note TEXT,
+      signed_up_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
 
   if (cols.includes("team_id")) {
     const rows = db.prepare("SELECT id, team_id FROM schedule_entries WHERE team_id IS NOT NULL").all() as { id: number; team_id: number }[];

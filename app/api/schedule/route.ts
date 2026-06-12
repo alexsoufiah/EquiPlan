@@ -65,12 +65,12 @@ export async function POST(req: NextRequest) {
 
   const db = getDb();
   const body = await req.json();
-  const { tournament_id, date, start_time, end_time, title, phase, pruefungs_id, arena_id, team_ids, speaker_id, notes } = body;
+  const { tournament_id, date, start_time, end_time, title, phase, pruefungs_id, arena_id, team_ids, speaker_id, notes, helpers_needed, helpers_task } = body;
 
   const result = db.prepare(`
-    INSERT INTO schedule_entries (tournament_id, date, start_time, end_time, title, phase, pruefungs_id, arena_id, speaker_id, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(tournament_id || null, date, start_time, end_time, title, phase, pruefungs_id || null, arena_id || null, speaker_id || null, notes || null);
+    INSERT INTO schedule_entries (tournament_id, date, start_time, end_time, title, phase, pruefungs_id, arena_id, speaker_id, notes, helpers_needed, helpers_task)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(tournament_id || null, date, start_time, end_time, title, phase, pruefungs_id || null, arena_id || null, speaker_id || null, notes || null, helpers_needed || 0, helpers_task || null);
 
   if (Array.isArray(team_ids) && team_ids.length > 0) setTeams(db, result.lastInsertRowid, team_ids);
 

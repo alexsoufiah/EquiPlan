@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { use } from "react";
 import { Trophy, MapPin, Clock, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
@@ -11,6 +11,9 @@ interface Entry {
   arena_id?: number; arena_name?: string;
   speaker_name?: string; speaker_role?: string; speaker_color?: string;
   teams: Team[];
+  helpers_needed?: number;
+  helpers_task?: string;
+  helpers_signed_up?: number;
 }
 interface Tournament { id: number; name: string; location?: string; start_date?: string; end_date?: string; }
 
@@ -213,7 +216,14 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const [error, setError] = useState("");
   const [visibleIds, setVisibleIds] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
+  const [helperEntry, setHelperEntry] = useState<Entry | null>(null);
   const currentRef = useRef<HTMLDivElement>(null);
+
+  function onHelperSignedUp(entryId: number) {
+    setEntries(prev => prev.map(e =>
+      e.id === entryId ? { ...e, helpers_signed_up: (e.helpers_signed_up ?? 0) + 1 } : e
+    ));
+  }
 
   // Tick alle 30s für LIVE/done-Update
   const [, setTick] = useState(0);
@@ -460,6 +470,29 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                           )}
                         </div>
                         {e.notes && <p className="text-xs text-gray-400 mt-1.5 italic border-t border-white/8 pt-1.5">{e.notes}</p>}
+                        {!done && (e.helpers_needed ?? 0) > 0 && (() => {
+                          const signedUp = e.helpers_signed_up ?? 0;
+                          const needed = e.helpers_needed ?? 0;
+                          const full = signedUp >= needed;
+                          return (
+                            <div className="mt-2 space-y-1">
+                              {e.helpers_task && (
+                                <p className="text-xs text-gray-400">Aufgabe: {e.helpers_task}</p>
+                              )}
+                              <button
+                                onClick={() => !full && setHelperEntry(e)}
+                                disabled={full}
+                                className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition w-fit ${
+                                  full
+                                    ? "text-green-400 bg-green-500/10 border-green-500/30 cursor-default"
+                                    : "text-amber-300 bg-amber-500/15 border-amber-400/30 hover:bg-amber-500/25 cursor-pointer"
+                                }`}
+                              >
+                                {full ? `✓ Alle ${needed} Plätze belegt` : `🙋 ${signedUp}/${needed} Plätze – Jetzt anmelden`}
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -486,6 +519,76 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
         .bg-white\\/3 { background-color: rgb(255 255 255 / 0.03); }
         .bg-white\\/8 { background-color: rgb(255 255 255 / 0.08); }
       `}</style>
+
+      {helperEntry && <HelperSignupModal entry={helperEntry} token={token} onClose={() => setHelperEntry(null)} onSignedUp={onHelperSignedUp} />}
+    </div>
+  );
+}
+
+function HelperSignupModal({ entry, token, onClose, onSignedUp }: { entry: Entry; token: string; onClose: () => void; onSignedUp: (entryId: number) => void }) {
+  const [name, setName] = useState("");
+  const [contact, setContact] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true); setError("");
+    const r = await fetch("/api/helpers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entry_id: entry.id, share_token: token, name, contact, note }),
+    });
+    if (r.ok) { setDone(true); onSignedUp(entry.id); }
+    else { const d = await r.json(); setError(d.error || "Anmeldung fehlgeschlagen"); }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="relative bg-gray-900 border border-white/10 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl p-5">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">✕</button>
+        {done ? (
+          <div className="text-center py-6 space-y-3">
+            <div className="text-5xl">🙌</div>
+            <p className="text-white font-bold text-lg">Danke, {name}!</p>
+            <p className="text-gray-400 text-sm">Du bist als Helfer eingetragen für:<br /><span className="text-white">{entry.title}</span></p>
+            <button onClick={onClose} className="mt-3 bg-violet-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-violet-500">Schließen</button>
+          </div>
+        ) : (
+          <>
+            <h2 className="text-white font-bold text-lg mb-1">Als Helfer anmelden</h2>
+            <p className="text-gray-400 text-sm">{entry.title} · {entry.start_time}–{entry.end_time}</p>
+            {entry.helpers_task && <p className="text-amber-300 text-sm mt-1 mb-4">Aufgabe: {entry.helpers_task}</p>}
+            {!entry.helpers_task && <div className="mb-4" />}
+            <form onSubmit={submit} className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Name *</label>
+                <input required value={name} onChange={e => setName(e.target.value)} placeholder="Dein Name"
+                  className="w-full bg-gray-800 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500 placeholder-gray-600" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">E-Mail oder Telefon *</label>
+                <input required value={contact} onChange={e => setContact(e.target.value)} placeholder="Für Rückfragen"
+                  className="w-full bg-gray-800 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500 placeholder-gray-600" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Anmerkung (optional)</label>
+                <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="z.B. Erfahrungen, Einschränkungen..."
+                  className="w-full bg-gray-800 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-500 placeholder-gray-600 resize-none" />
+              </div>
+              {error && <p className="text-red-400 text-sm">{error}</p>}
+              <button type="submit" disabled={loading}
+                className="w-full bg-violet-600 hover:bg-violet-500 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50">
+                {loading ? "Anmelden…" : "Jetzt anmelden"}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
     </div>
   );
 }

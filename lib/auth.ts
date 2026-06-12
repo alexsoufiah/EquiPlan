@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { getDb } from "./db";
 import { cookies } from "next/headers";
+import type { NextRequest } from "next/server";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "pferdeplan-secret-key-change-in-production"
@@ -17,6 +18,9 @@ export interface Session {
   speakerName?: string;
   speakerRole?: string;
   speakerColor?: string;
+  adminId?: number;
+  adminName?: string;
+  adminTournamentId?: number; // null/undefined = super admin, set = show admin
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -45,6 +49,9 @@ export async function verifyToken(token: string): Promise<Session | null> {
       speakerName: payload.speakerName as string | undefined,
       speakerRole: payload.speakerRole as string | undefined,
       speakerColor: payload.speakerColor as string | undefined,
+      adminId: payload.adminId as number | undefined,
+      adminName: payload.adminName as string | undefined,
+      adminTournamentId: payload.adminTournamentId as number | undefined,
     };
   } catch {
     return null;
@@ -63,6 +70,12 @@ export function getPasswords(): { viewerHash: string | null; adminHash: string |
   const viewer = db.prepare("SELECT value FROM settings WHERE key = 'viewer_password'").get() as { value: string } | undefined;
   const admin = db.prepare("SELECT value FROM settings WHERE key = 'admin_password'").get() as { value: string } | undefined;
   return { viewerHash: viewer?.value ?? null, adminHash: admin?.value ?? null };
+}
+
+export async function verifySession(req: NextRequest): Promise<Session | null> {
+  const cookie = req.cookies.get("session")?.value;
+  if (!cookie) return null;
+  return verifyToken(cookie);
 }
 
 export async function initDefaultPasswords() {
