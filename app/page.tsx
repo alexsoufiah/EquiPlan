@@ -1,7 +1,9 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { LogOut, Settings, Bell, BellOff, RefreshCw, ChevronLeft, ChevronRight, Trophy, ChevronDown, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/lib/theme";
+
+const PhaseOverridesContext = createContext<{ overrides: Record<string, string>; setOverrides: (v: Record<string, string>) => void }>({ overrides: {}, setOverrides: () => {} });
 
 // Types
 interface Speaker { id: number; name: string; role: string; color: string; has_password?: number; }
@@ -422,6 +424,8 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
   const done = isEntryDone(entry);
   const isMyTeam = myTeamId != null && entry.teams?.some(t => t.id === myTeamId);
   const phase = PHASE_CONFIG[entry.phase] ?? PHASE_CONFIG.pause;
+  const { overrides } = useContext(PhaseOverridesContext);
+  const overrideColor = overrides[entry.phase];
 
   const cardContent = (
     <>
@@ -473,7 +477,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
           {entry.notes && <p className="text-xs text-violet-700 dark:text-violet-400 mt-1 italic">{entry.notes}</p>}
         </div>
       ) : (
-        <div className={`rounded-xl border-l-4 ${phase.border} ${phase.bg} p-3 space-y-1 cursor-pointer hover:brightness-95 transition`}>
+        <div className={`rounded-xl border-l-4 ${phase.border} ${phase.bg} p-3 space-y-1 cursor-pointer hover:brightness-95 transition`} style={overrideColor ? { backgroundColor: overrideColor, borderLeftColor: overrideColor } : undefined}>
           <div className="flex items-start justify-between gap-2">
             <div>
               <span className="font-semibold text-gray-800 dark:text-gray-100">
@@ -699,6 +703,11 @@ export default function App() {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState(today());
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [phaseOverrides, setPhaseOverrides] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch("/api/phases").then(r => r.json()).then(d => { if (d?.overrides) setPhaseOverrides(d.overrides); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if ("serviceWorker" in navigator && "PushManager" in window) {
@@ -832,6 +841,7 @@ export default function App() {
   }
 
   return (
+    <PhaseOverridesContext.Provider value={{ overrides: phaseOverrides, setOverrides: setPhaseOverrides }}>
     <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-950 overflow-hidden">
       {showOnboarding && session && (
         <OnboardingOverlay session={session} onDone={() => setShowOnboarding(false)} />
@@ -903,6 +913,7 @@ export default function App() {
         </div>
       </main>
     </div>
+    </PhaseOverridesContext.Provider>
   );
 }
 
@@ -1386,7 +1397,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
       {main === "turnier" && turnierSub === "details" && <TournamentSettingsTab tournamentId={activeTournamentId} onLogoUpdated={onRefresh} />}
       {main === "turnier" && turnierSub === "organisation" && <OrganisationTab speakers={speakers} arenas={arenas} teams={teams} onRefresh={load} />}
       {main === "turnier" && turnierSub === "phasen" && <PhasesTab />}
-      {main === "turnier" && turnierSub === "dokumente" && <DocumentsAdminTab tournamentId={activeTournamentId} />}
+      {main === "turnier" && turnierSub === "dokumente" && <DocumentsAdminTab tournamentId={activeTournamentId} isSuperAdmin={isSuperAdmin} />}
       {main === "turnier" && turnierSub === "share" && <ShareTab tournamentId={activeTournamentId} />}
 
       {main === "verwaltung" && isSuperAdmin && verwaltungSub === "settings" && <PasswordSettings />}
@@ -1830,15 +1841,32 @@ const PHASE_COLORS = [
   { label: "Pink",    value: "#ec4899" },
 ];
 
+// Standard-Phase-Defaults (Hex) für den Color-Picker
+const PHASE_DEFAULT_COLORS: Record<string, string> = {
+  aufbau: "#f97316", wettkampf: "#3b82f6", siegerehrung: "#eab308", abbau: "#a855f7", pause: "#6b7280",
+};
+
 function PhasesTab() {
   const [custom, setCustom] = useState<CustomPhase[]>([]);
+  const { overrides, setOverrides: setGlobalOverrides } = useContext(PhaseOverridesContext);
   const [newLabel, setNewLabel] = useState("");
   const [newColor, setNewColor] = useState("#6366f1");
   const [saving, setSaving] = useState(false);
+  const [editingPhase, setEditingPhase] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/phases").then(r => r.json()).then(d => setCustom(Array.isArray(d) ? d : []));
+    fetch("/api/phases").then(r => r.json()).then(d => {
+      if (d?.custom) setCustom(Array.isArray(d.custom) ? d.custom : []);
+      if (d?.overrides) setGlobalOverrides(d.overrides);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function saveOverride(phaseKey: string, color: string) {
+    await fetch("/api/phases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "override", phase: phaseKey, color }) });
+    setGlobalOverrides({ ...overrides, [phaseKey]: color });
+    setEditingPhase(null);
+  }
 
   async function add() {
     if (!newLabel.trim()) return;
@@ -1854,24 +1882,41 @@ function PhasesTab() {
     setCustom(c => c.filter(p => p.id !== id));
   }
 
-  const standardPhases = Object.entries(PHASE_CONFIG).map(([key, v]) => ({ key, label: v.label }));
-
   return (
     <div className="space-y-5 max-w-lg">
-      {/* Standard */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-3">Standard-Phasen</h3>
-        <div className="flex flex-wrap gap-2">
-          {standardPhases.map(p => (
-            <span key={p.key} className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${PHASE_CONFIG[p.key].bg} ${PHASE_CONFIG[p.key].border} ${PHASE_CONFIG[p.key].color}`}>
-              {p.label}
-            </span>
-          ))}
+      {/* Standard-Phasen mit Farbwahl */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-3">
+        <div>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">Standard-Phasen</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Farbe anpassen, nicht löschbar.</p>
         </div>
-        <p className="text-xs text-gray-400 mt-3">Standard-Phasen können nicht gelöscht werden.</p>
+        {Object.entries(PHASE_CONFIG).map(([key, v]) => {
+          const currentColor = overrides[key] ?? PHASE_DEFAULT_COLORS[key] ?? "#6366f1";
+          const isEditing = editingPhase === key;
+          return (
+            <div key={key} className="flex items-center gap-3">
+              <div className="w-4 h-4 rounded-full shrink-0 border border-gray-200" style={{ backgroundColor: currentColor }} />
+              <span className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{v.label}</span>
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5 flex-wrap">
+                    {PHASE_COLORS.map(c => (
+                      <button key={c.value} onClick={() => saveOverride(key, c.value)}
+                        className={`w-6 h-6 rounded-full border-2 transition hover:scale-110 ${currentColor === c.value ? "border-gray-800 dark:border-white" : "border-transparent"}`}
+                        style={{ backgroundColor: c.value }} title={c.label} />
+                    ))}
+                  </div>
+                  <button onClick={() => setEditingPhase(null)} className="text-xs text-gray-400 hover:text-gray-600 px-1">✕</button>
+                </div>
+              ) : (
+                <button onClick={() => setEditingPhase(key)} className="text-xs text-indigo-500 hover:text-indigo-700 px-2 py-0.5 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/30">Farbe</button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Eigene */}
+      {/* Eigene Phasen */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
         <h3 className="font-semibold text-gray-700 dark:text-gray-200">Eigene Phasen</h3>
         {custom.length === 0 && <p className="text-sm text-gray-400">Noch keine eigenen Phasen.</p>}
@@ -1885,7 +1930,6 @@ function PhasesTab() {
             </div>
           ))}
         </div>
-
         <div className="border-t border-gray-100 dark:border-gray-700 pt-4 space-y-3">
           <h4 className="text-sm font-medium text-gray-600 dark:text-gray-300">Neue Phase anlegen</h4>
           <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Name (z.B. Vorführung)" className={inputClass} />
@@ -2583,7 +2627,7 @@ function DocList({ docs, onDelete }: { docs: DocMeta[]; onDelete: (id: number, n
   );
 }
 
-function DocumentsAdminTab({ tournamentId }: { tournamentId?: number }) {
+function DocumentsAdminTab({ tournamentId, isSuperAdmin }: { tournamentId?: number; isSuperAdmin?: boolean }) {
   const [generalDocs, setGeneralDocs] = useState<DocMeta[]>([]);
   const [tournamentDocs, setTournamentDocs] = useState<DocMeta[]>([]);
 
@@ -2608,17 +2652,19 @@ function DocumentsAdminTab({ tournamentId }: { tournamentId?: number }) {
 
   return (
     <div className="space-y-5">
-      {/* Allgemeine Dokumente */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="font-semibold text-gray-700 dark:text-gray-200">Allgemeine Dokumente</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Sichtbar bei allen Turnieren</p>
+      {/* Allgemeine Dokumente — nur Super-Admin */}
+      {isSuperAdmin && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="font-semibold text-gray-700 dark:text-gray-200">Allgemeine Dokumente</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Sichtbar bei allen Turnieren</p>
+            </div>
+            <DocUploadButton onUploaded={loadGeneral} label="Hochladen" />
           </div>
-          <DocUploadButton onUploaded={loadGeneral} label="Hochladen" />
+          <DocList docs={generalDocs} onDelete={(id, n) => remove(id, n, setGeneralDocs)} />
         </div>
-        <DocList docs={generalDocs} onDelete={(id, n) => remove(id, n, setGeneralDocs)} />
-      </div>
+      )}
 
       {/* Turnierspezifische Dokumente */}
       {tournamentId && (
