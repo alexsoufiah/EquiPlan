@@ -724,10 +724,10 @@ export default function App() {
   const activeTournamentRef = useRef<Tournament | null>(null);
 
   useEffect(() => {
-    fetch("/api/schedule").then(async r => {
+    fetch("/api/session").then(async r => {
       if (r.ok) {
-        const adminCheck = await fetch("/api/arenas", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: -1 }) });
-        setSession({ role: adminCheck.status === 403 ? "viewer" : "admin" });
+        const s = await r.json();
+        if (s?.role) setSession(s);
       }
       setChecking(false);
     }).catch(() => setChecking(false));
