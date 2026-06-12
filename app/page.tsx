@@ -1413,6 +1413,12 @@ function SpeakersTab({ speakers, onRefresh }: { speakers: Speaker[]; onRefresh: 
     setEdit(null); setNewPassword(""); onRefresh();
   }
 
+  async function del(id: number) {
+    if (!confirm("Sprecher wirklich löschen?")) return;
+    await fetch("/api/speakers", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    onRefresh();
+  }
+
   async function removePassword(id: number) {
     if (!confirm("Passwort wirklich entfernen?")) return;
     const s = speakers.find(x => x.id === id)!;
@@ -1423,10 +1429,8 @@ function SpeakersTab({ speakers, onRefresh }: { speakers: Speaker[]; onRefresh: 
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-200">Sprecher ({speakers.length}/3)</h3>
-        {speakers.length < 3 && (
-          <button onClick={() => { setEdit({ color: "#3B82F6" }); setNewPassword(""); }} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Hinzufügen</button>
-        )}
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200">Sprecher ({speakers.length})</h3>
+        <button onClick={() => { setEdit({ color: "#3B82F6" }); setNewPassword(""); }} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Hinzufügen</button>
       </div>
       {speakers.map(s => (
         <div key={s.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3">
@@ -1441,6 +1445,7 @@ function SpeakersTab({ speakers, onRefresh }: { speakers: Speaker[]; onRefresh: 
               : <span className="text-xs bg-gray-50 text-gray-400 border border-gray-200 px-2 py-0.5 rounded-full">Kein Login</span>
             }
             <button onClick={() => { setEdit({ ...s }); setNewPassword(""); }} className="text-xs text-blue-600 hover:underline">Bearbeiten</button>
+            <button onClick={() => del(s.id)} className="text-xs text-red-500 hover:underline">Löschen</button>
           </div>
         </div>
       ))}

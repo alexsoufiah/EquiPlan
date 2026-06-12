@@ -168,13 +168,6 @@ function initSchema(db: Database.Database) {
   }
 
   // Seed defaults
-  const speakerCount = (db.prepare("SELECT COUNT(*) as c FROM speakers").get() as { c: number }).c;
-  if (speakerCount === 0) {
-    db.prepare("INSERT INTO speakers (name, role, color) VALUES (?, ?, ?)").run("Max Mustermann", "Hauptsprecher", "#3B82F6");
-    db.prepare("INSERT INTO speakers (name, role, color) VALUES (?, ?, ?)").run("Anna Schmidt", "Co-Sprecher", "#10B981");
-    db.prepare("INSERT INTO speakers (name, role, color) VALUES (?, ?, ?)").run("Klaus Weber", "Platzsprecher", "#F59E0B");
-  }
-
   const arenaCount = (db.prepare("SELECT COUNT(*) as c FROM arenas").get() as { c: number }).c;
   if (arenaCount === 0) {
     db.prepare("INSERT INTO arenas (name, description) VALUES (?, ?)").run("Hauptplatz", "Hauptveranstaltungsplatz");

@@ -35,3 +35,11 @@ export async function PUT(req: NextRequest) {
 
   return NextResponse.json(db.prepare(`${SAFE_SELECT} WHERE id = ?`).get(id));
 }
+
+export async function DELETE(req: NextRequest) {
+  const session = await getSession();
+  if (session?.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  const { id } = await req.json();
+  getDb().prepare("DELETE FROM speakers WHERE id = ?").run(id);
+  return NextResponse.json({ ok: true });
+}
