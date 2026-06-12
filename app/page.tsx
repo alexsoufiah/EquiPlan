@@ -1221,7 +1221,7 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
 
 function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () => void; activeTournamentId?: number; session: AppSession | null }) {
   const isSuperAdmin = !session?.adminTournamentId;
-  const [tab, setTab] = useState<"entries" | "speakers" | "arenas" | "teams" | "settings" | "api" | "share" | "inquiries" | "documents" | "admins">("entries");
+  const [tab, setTab] = useState<"entries" | "speakers" | "arenas" | "teams" | "settings" | "api" | "share" | "inquiries" | "documents" | "admins" | "shifts">("entries");
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [arenas, setArenas] = useState<Arena[]>([]);
@@ -1267,6 +1267,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
     { key: "settings", label: "Passwörter" },
     { key: "api", label: "API-Zugang" },
     { key: "share", label: "Share-Link" },
+    { key: "shifts", label: "🕐 Schichten" },
     { key: "inquiries", label: "Anfragen" },
     { key: "documents", label: "📄 Dokumente" },
     ...(isSuperAdmin ? [{ key: "admins" as const, label: "👥 Admins" }] : []),
@@ -1314,6 +1315,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
       {tab === "settings" && <PasswordSettings />}
       {tab === "api" && <ApiKeySettings />}
       {tab === "share" && <ShareTab tournamentId={activeTournamentId} />}
+      {tab === "shifts" && <ShiftsTab tournamentId={activeTournamentId} />}
       {tab === "inquiries" && <InquiriesTab />}
       {tab === "documents" && <DocumentsAdminTab tournamentId={activeTournamentId} />}
       {tab === "admins" && isSuperAdmin && <AdminsTab />}
@@ -1801,6 +1803,208 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Shifts Tab ────────────────────────────────────────────────────────────────
+interface Shift {
+  id: number; tournament_id?: number; date: string; start_time: string; end_time: string;
+  task: string; notes?: string; worker_count: number; attended_count: number;
+  assignments: ShiftAssignment[];
+}
+interface ShiftAssignment {
+  id: number; shift_id: number; worker_name: string; attended: number; notes?: string;
+}
+
+function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [filterDate, setFilterDate] = useState("");
+  const [editShift, setEditShift] = useState<Partial<Shift> | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [newWorker, setNewWorker] = useState<{ [shiftId: number]: string }>({});
+
+  const load = useCallback(async () => {
+    let url = "/api/shifts";
+    const params = new URLSearchParams();
+    if (tournamentId) params.set("tournament_id", String(tournamentId));
+    if (filterDate) params.set("date", filterDate);
+    if (params.toString()) url += "?" + params.toString();
+    const res = await fetch(url);
+    if (res.ok) setShifts(await res.json());
+  }, [tournamentId, filterDate]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function saveShift() {
+    if (!editShift) return;
+    const method = editShift.id ? "PUT" : "POST";
+    await fetch("/api/shifts", {
+      method, headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...editShift, tournament_id: tournamentId }),
+    });
+    setEditShift(null); load();
+  }
+
+  async function deleteShift(id: number) {
+    if (!confirm("Schicht löschen?")) return;
+    await fetch("/api/shifts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    load();
+  }
+
+  async function addWorker(shiftId: number) {
+    const name = newWorker[shiftId]?.trim();
+    if (!name) return;
+    await fetch("/api/shifts/assignments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shift_id: shiftId, worker_name: name }),
+    });
+    setNewWorker(v => ({ ...v, [shiftId]: "" }));
+    load();
+  }
+
+  async function toggleAttended(assignment: ShiftAssignment) {
+    const next = assignment.attended === 1 ? 0 : 1;
+    await fetch("/api/shifts/assignments", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...assignment, attended: next }),
+    });
+    load();
+  }
+
+  async function removeWorker(id: number) {
+    await fetch("/api/shifts/assignments", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    load();
+  }
+
+  function totalHours(shifts: Shift[]) {
+    const byWorker: { [name: string]: number } = {};
+    for (const s of shifts) {
+      const [sh, sm] = s.start_time.split(":").map(Number);
+      const [eh, em] = s.end_time.split(":").map(Number);
+      const hours = (eh * 60 + em - sh * 60 - sm) / 60;
+      for (const a of s.assignments) {
+        byWorker[a.worker_name] = (byWorker[a.worker_name] ?? 0) + hours;
+      }
+    }
+    return byWorker;
+  }
+
+  const workerHours = totalHours(shifts);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-lg">🕐 Schichtplan</h3>
+        <div className="flex gap-2 items-center">
+          <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+            className={inputClass + " text-sm py-1.5"} />
+          {filterDate && <button onClick={() => setFilterDate("")} className="text-xs text-gray-400 hover:text-gray-600">✕ Filter</button>}
+          <button onClick={() => setEditShift({ date: filterDate || today(), start_time: "08:00", end_time: "17:00" })}
+            className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Schicht</button>
+        </div>
+      </div>
+
+      {/* Stunden-Übersicht */}
+      {Object.keys(workerHours).length > 0 && (
+        <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
+          <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-2">Stunden-Übersicht {filterDate ? `(${filterDate})` : "(gesamt)"}</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(workerHours).sort((a, b) => b[1] - a[1]).map(([name, h]) => (
+              <span key={name} className="bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-lg px-2 py-1 text-xs">
+                <span className="font-medium">{name}</span> · {h % 1 === 0 ? h : h.toFixed(1)}h
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Schicht-Formular */}
+      {editShift !== null && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
+          <h4 className="font-semibold text-gray-700 dark:text-gray-200">{editShift.id ? "Schicht bearbeiten" : "Neue Schicht"}</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Datum"><input type="date" value={editShift.date ?? ""} onChange={e => setEditShift(v => ({ ...v!, date: e.target.value }))} className={inputClass} /></Field>
+            <Field label="Aufgabe"><input value={editShift.task ?? ""} onChange={e => setEditShift(v => ({ ...v!, task: e.target.value }))} className={inputClass} placeholder="z.B. Parcours A" /></Field>
+            <Field label="Von"><input type="time" value={editShift.start_time ?? ""} onChange={e => setEditShift(v => ({ ...v!, start_time: e.target.value }))} className={inputClass} /></Field>
+            <Field label="Bis"><input type="time" value={editShift.end_time ?? ""} onChange={e => setEditShift(v => ({ ...v!, end_time: e.target.value }))} className={inputClass} /></Field>
+          </div>
+          <Field label="Notizen (optional)"><input value={editShift.notes ?? ""} onChange={e => setEditShift(v => ({ ...v!, notes: e.target.value }))} className={inputClass} placeholder="Besonderheiten..." /></Field>
+          <div className="flex gap-2">
+            <button onClick={saveShift} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">Speichern</button>
+            <button onClick={() => setEditShift(null)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
+          </div>
+        </div>
+      )}
+
+      {/* Schichten-Liste */}
+      {shifts.length === 0 && !editShift && (
+        <div className="text-center py-10 text-gray-400">
+          <div className="text-4xl mb-2">🕐</div>
+          <p>Noch keine Schichten angelegt.</p>
+        </div>
+      )}
+
+      {shifts.map(shift => {
+        const [sh, sm] = shift.start_time.split(":").map(Number);
+        const [eh, em] = shift.end_time.split(":").map(Number);
+        const hours = (eh * 60 + em - sh * 60 - sm) / 60;
+        const isExpanded = expandedId === shift.id;
+
+        return (
+          <div key={shift.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div className="p-3 flex items-center gap-3 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : shift.id)}>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-gray-800 dark:text-gray-100">{shift.task}</span>
+                  <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">
+                    {shift.start_time}–{shift.end_time} ({hours % 1 === 0 ? hours : hours.toFixed(1)}h)
+                  </span>
+                  <span className="text-xs text-gray-400">{shift.date}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-gray-500">{shift.worker_count} Mitarbeiter</span>
+                  {shift.attended_count > 0 && (
+                    <span className="text-xs text-green-600">✓ {shift.attended_count} anwesend</span>
+                  )}
+                  {shift.notes && <span className="text-xs text-gray-400 italic">{shift.notes}</span>}
+                </div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={e => { e.stopPropagation(); setEditShift({ ...shift }); }} className="text-xs text-blue-600 hover:underline px-1">Bearbeiten</button>
+                <button onClick={e => { e.stopPropagation(); deleteShift(shift.id); }} className="text-xs text-red-500 hover:underline px-1">Löschen</button>
+                <span className="text-gray-400 text-sm">{isExpanded ? "▲" : "▼"}</span>
+              </div>
+            </div>
+
+            {isExpanded && (
+              <div className="border-t border-gray-100 dark:border-gray-700 p-3 space-y-2 bg-gray-50 dark:bg-gray-900/30">
+                {shift.assignments.map(a => (
+                  <div key={a.id} className="flex items-center gap-2">
+                    <button onClick={() => toggleAttended(a)}
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs shrink-0 transition ${a.attended === 1 ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"}`}>
+                      {a.attended === 1 ? "✓" : ""}
+                    </button>
+                    <span className={`flex-1 text-sm ${a.attended === 1 ? "text-gray-800 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"}`}>{a.worker_name}</span>
+                    {a.notes && <span className="text-xs text-gray-400 italic">{a.notes}</span>}
+                    <button onClick={() => removeWorker(a.id)} className="text-xs text-red-400 hover:text-red-600">✕</button>
+                  </div>
+                ))}
+                <div className="flex gap-2 mt-2">
+                  <input
+                    value={newWorker[shift.id] ?? ""}
+                    onChange={e => setNewWorker(v => ({ ...v, [shift.id]: e.target.value }))}
+                    onKeyDown={e => e.key === "Enter" && addWorker(shift.id)}
+                    placeholder="Mitarbeitername..."
+                    className={inputClass + " text-sm py-1.5 flex-1"}
+                  />
+                  <button onClick={() => addWorker(shift.id)} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+</button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
