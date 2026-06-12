@@ -119,6 +119,7 @@ function initSchema(db: Database.Database) {
   // Migrations
   const tournCols = (db.prepare("PRAGMA table_info(tournaments)").all() as { name: string }[]).map(c => c.name);
   if (!tournCols.includes("share_token")) db.exec("ALTER TABLE tournaments ADD COLUMN share_token TEXT");
+  if (!tournCols.includes("logo_path")) db.exec("ALTER TABLE tournaments ADD COLUMN logo_path TEXT");
 
   const cols = (db.prepare("PRAGMA table_info(schedule_entries)").all() as { name: string }[]).map(c => c.name);
   if (!cols.includes("pruefungs_id")) db.exec("ALTER TABLE schedule_entries ADD COLUMN pruefungs_id TEXT");

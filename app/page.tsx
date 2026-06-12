@@ -7,7 +7,7 @@ import { useTheme } from "@/lib/theme";
 interface Speaker { id: number; name: string; role: string; color: string; has_password?: number; }
 interface Arena { id: number; name: string; description?: string; }
 interface Team { id: number; name: string; description?: string; has_password?: number; }
-interface Tournament { id: number; name: string; location?: string; start_date?: string; end_date?: string; }
+interface Tournament { id: number; name: string; location?: string; start_date?: string; end_date?: string; logo_path?: string; }
 interface ScheduleEntry {
   id: number; date: string; start_time: string; end_time: string;
   title: string; phase: string; pruefungs_id?: string; tournament_id?: number; arena_id?: number; speaker_id?: number;
@@ -802,7 +802,10 @@ export default function App() {
       <header className="shrink-0 bg-gradient-to-r from-indigo-800 to-violet-700 text-white shadow-lg safe-top">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <img src="/logo.png" alt="EquiPlan" className="w-9 h-9 object-contain rounded-lg bg-white/10 p-0.5 shrink-0" />
+            {activeTournament.logo_path
+              ? <img src={activeTournament.logo_path} alt={activeTournament.name} className="w-9 h-9 object-contain rounded-lg bg-white/10 p-0.5 shrink-0" />
+              : <img src="/logo.png" alt="EquiPlan" className="w-9 h-9 object-contain rounded-lg bg-white/10 p-0.5 shrink-0" />
+            }
             <div className="min-w-0">
               <h1 className="font-bold text-lg leading-tight tracking-tight">
                 <span className="text-white">Equi</span><span className="text-violet-300">Plan</span>
@@ -908,8 +911,11 @@ function TournamentSelect({ tournaments, session, onSelect, onLogout, onCreated 
               {tournaments.map(t => (
                 <button key={t.id} onClick={() => onSelect(t)}
                   className="w-full px-5 py-4 text-left hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition flex items-center gap-4 group">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <Trophy size={18} className="text-white" />
+                  <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform">
+                    {t.logo_path
+                      ? <img src={t.logo_path} alt={t.name} className="w-full h-full object-contain bg-indigo-50 dark:bg-indigo-900/30" />
+                      : <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center"><Trophy size={18} className="text-white" /></div>
+                    }
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 dark:text-gray-100 truncate">{t.name}</p>
@@ -1221,7 +1227,7 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
 
 function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () => void; activeTournamentId?: number; session: AppSession | null }) {
   const isSuperAdmin = !session?.adminTournamentId;
-  const [tab, setTab] = useState<"entries" | "speakers" | "arenas" | "teams" | "settings" | "api" | "share" | "inquiries" | "documents" | "admins" | "shifts">("entries");
+  const [tab, setTab] = useState<"entries" | "speakers" | "arenas" | "teams" | "settings" | "api" | "share" | "inquiries" | "documents" | "admins" | "shifts" | "tournament">("entries");
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [arenas, setArenas] = useState<Arena[]>([]);
@@ -1229,6 +1235,11 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
   const [editEntry, setEditEntry] = useState<Partial<ScheduleEntry> | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState(today());
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+
+  useEffect(() => {
+    if (activeTournamentId) fetch(`/api/tournaments/${activeTournamentId}`).then(r => r.json()).then(setTournament);
+  }, [activeTournamentId]);
 
   const load = useCallback(async () => {
     const [e, s, a, t] = await Promise.all([
@@ -1261,6 +1272,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
 
   const tabs = [
     { key: "entries", label: "Einträge" },
+    { key: "tournament", label: "🏆 Turnier" },
     { key: "speakers", label: "Sprecher" },
     { key: "arenas", label: "Plätze" },
     { key: "teams", label: "Teams" },
@@ -1314,8 +1326,9 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
       {tab === "teams" && <TeamsTab teams={teams} onRefresh={load} />}
       {tab === "settings" && <PasswordSettings />}
       {tab === "api" && <ApiKeySettings />}
+      {tab === "tournament" && <TournamentSettingsTab tournamentId={activeTournamentId} onLogoUpdated={onRefresh} />}
       {tab === "share" && <ShareTab tournamentId={activeTournamentId} />}
-      {tab === "shifts" && <ShiftsTab tournamentId={activeTournamentId} />}
+      {tab === "shifts" && <ShiftsTab tournamentId={activeTournamentId} tournament={tournament} />}
       {tab === "inquiries" && <InquiriesTab />}
       {tab === "documents" && <DocumentsAdminTab tournamentId={activeTournamentId} />}
       {tab === "admins" && isSuperAdmin && <AdminsTab />}
@@ -1716,6 +1729,100 @@ function ApiKeySettings() {
   );
 }
 
+function TournamentSettingsTab({ tournamentId, onLogoUpdated }: { tournamentId?: number; onLogoUpdated: () => void }) {
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ name: "", location: "", start_date: "", end_date: "" });
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    fetch(`/api/tournaments/${tournamentId}`).then(r => r.json()).then((t: Tournament) => {
+      setTournament(t);
+      setForm({ name: t.name, location: t.location ?? "", start_date: t.start_date ?? "", end_date: t.end_date ?? "" });
+    });
+  }, [tournamentId]);
+
+  async function uploadLogo(file: File) {
+    if (!tournamentId) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("tournament_id", String(tournamentId));
+    const r = await fetch("/api/tournaments/logo", { method: "POST", body: fd });
+    if (r.ok) {
+      const d = await r.json();
+      setTournament(t => t ? { ...t, logo_path: d.logo_path } : t);
+      onLogoUpdated();
+    }
+    setUploading(false);
+  }
+
+  async function saveTournament() {
+    if (!tournamentId || !form.name.trim()) return;
+    setSaving(true);
+    const r = await fetch(`/api/tournaments/${tournamentId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    if (r.ok) { const t = await r.json(); setTournament(t); onLogoUpdated(); }
+    setSaving(false);
+  }
+
+  if (!tournamentId) return <p className="text-gray-400 text-sm">Kein Turnier aktiv.</p>;
+  if (!tournament) return <p className="text-gray-400 text-sm">Laden...</p>;
+
+  return (
+    <div className="space-y-5 max-w-lg">
+      {/* Logo */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">🖼️ Veranstaltungslogo</h3>
+        <p className="text-xs text-gray-400">Wird im Header, in der Turnierauswahl und in allen Exporten (PDF) angezeigt.</p>
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-700 shrink-0">
+            {tournament.logo_path
+              ? <img src={tournament.logo_path} alt="Logo" className="w-full h-full object-contain" />
+              : <span className="text-2xl opacity-30">🏆</span>
+            }
+          </div>
+          <div className="flex flex-col gap-2">
+            <button onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+              {uploading ? "Hochladen..." : tournament.logo_path ? "Logo ersetzen" : "Logo hochladen"}
+            </button>
+            <p className="text-xs text-gray-400">JPG, PNG, WebP · max. 5 MB</p>
+          </div>
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }} />
+      </div>
+
+      {/* Details */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-3">
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200">📝 Turnier-Details</h3>
+        <div className="space-y-2">
+          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Turniername *" className={inputClass} />
+          <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Ort" className={inputClass} />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Startdatum</label>
+              <input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
+                className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Enddatum</label>
+              <input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
+                className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full" />
+            </div>
+          </div>
+        </div>
+        <button onClick={saveTournament} disabled={saving || !form.name.trim()}
+          className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+          {saving ? "Speichern..." : "Änderungen speichern"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ShareTab({ tournamentId }: { tournamentId?: number }) {
   const [token, setToken] = useState<string | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
@@ -1817,7 +1924,7 @@ interface ShiftAssignment {
   id: number; shift_id: number; worker_name: string; attended: number; notes?: string;
 }
 
-function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
+function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tournament?: Tournament | null }) {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [filterDate, setFilterDate] = useState("");
   const [editShift, setEditShift] = useState<Partial<Shift> | null>(null);
@@ -1895,8 +2002,9 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
 
   function exportExcel() {
     import("xlsx").then(XLSX => {
+      const tournamentHeader = tournament?.name ? [[tournament.name + " – Schichtplan EquiPlan"], [""]] : [];
       // Sheet 1: Schichten-Detail
-      const detailRows: any[] = [["Datum", "Aufgabe", "Von", "Bis", "Stunden", "Mitarbeiter", "Anwesend", "Notizen"]];
+      const detailRows: any[] = [...tournamentHeader, ["Datum", "Aufgabe", "Von", "Bis", "Stunden", "Mitarbeiter", "Anwesend", "Notizen"]];
       for (const s of shifts) {
         const [sh, sm] = s.start_time.split(":").map(Number);
         const [eh, em] = s.end_time.split(":").map(Number);
@@ -1910,7 +2018,7 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
         }
       }
       // Sheet 2: Stunden-Zusammenfassung
-      const summaryRows: any[] = [["Mitarbeiter", "Schichten", "Gesamtstunden", "Anwesend"]];
+      const summaryRows: any[] = [...tournamentHeader, ["Mitarbeiter", "Schichten", "Gesamtstunden", "Anwesend"]];
       const byWorker: { [n: string]: { shifts: number; hours: number; attended: number } } = {};
       for (const s of shifts) {
         const [sh, sm] = s.start_time.split(":").map(Number);
@@ -1930,7 +2038,15 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailRows), "Schichten");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), "Auswertung");
-      XLSX.writeFile(wb, `EquiPlan_Schichten_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `EquiPlan_Schichten_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
     });
   }
 
@@ -1939,18 +2055,37 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
       const { default: autoTable } = await import("jspdf-autotable");
       const doc = new jsPDF({ orientation: "landscape" });
 
-      // Header-Gradient simulieren (zwei Rechtecke)
-      doc.setFillColor(55, 48, 163); // indigo-800
+      // Header-Gradient
+      doc.setFillColor(55, 48, 163);
       doc.rect(0, 0, 297, 22, "F");
-      doc.setFillColor(109, 40, 217); // violet-700
+      doc.setFillColor(109, 40, 217);
       doc.rect(180, 0, 117, 22, "F");
+
+      // Logo im Header (wenn vorhanden)
+      let textStartX = 14;
+      if (tournament?.logo_path) {
+        try {
+          const imgRes = await fetch(tournament.logo_path);
+          const imgBlob = await imgRes.blob();
+          const imgDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(imgBlob);
+          });
+          doc.addImage(imgDataUrl, 14, 2, 18, 18);
+          textStartX = 36;
+        } catch { /* Logo-Ladefehler ignorieren */ }
+      }
+
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("EquiPlan", 14, 14);
-      doc.setTextColor(196, 181, 253); // violet-300
-      doc.text("  Schichtauswertung", 42, 14);
-      doc.setTextColor(199, 210, 254); // indigo-200
+      const tournamentName = tournament?.name ?? "EquiPlan";
+      doc.text(tournamentName, textStartX, 14);
+      doc.setTextColor(196, 181, 253);
+      doc.setFontSize(11);
+      doc.text("  Schichtauswertung", textStartX + doc.getTextWidth(tournamentName), 14);
+      doc.setTextColor(199, 210, 254);
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.text(`Erstellt: ${new Date().toLocaleDateString("de-DE")}`, 238, 14);
@@ -2011,7 +2146,18 @@ function ShiftsTab({ tournamentId }: { tournamentId?: number }) {
         },
       });
 
-      doc.save(`EquiPlan_Schichten_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const filename = `EquiPlan_Schichten_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      if (isIOS) {
+        window.open(doc.output("datauristring"), "_blank");
+      } else {
+        const blob = doc.output("blob");
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+      }
     });
   }
 
