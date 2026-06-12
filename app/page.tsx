@@ -98,7 +98,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 flex flex-col items-center justify-center p-6 overflow-hidden touch-none select-none" style={{WebkitOverflowScrolling: "auto"}}>
+    <div className="fixed inset-0 bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 flex flex-col items-center justify-center overflow-hidden touch-none select-none" style={{padding: "env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)", paddingLeft: "max(1.5rem, env(safe-area-inset-left))", paddingRight: "max(1.5rem, env(safe-area-inset-right))"}}>
       {/* Animated background orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-24 w-80 h-80 bg-violet-500/15 rounded-full blur-3xl animate-pulse" />
@@ -781,7 +781,7 @@ export default function App() {
       {showOnboarding && session && (
         <OnboardingOverlay session={session} onDone={() => setShowOnboarding(false)} />
       )}
-      <header className="shrink-0 bg-gradient-to-r from-indigo-800 to-violet-700 text-white shadow-lg">
+      <header className="shrink-0 bg-gradient-to-r from-indigo-800 to-violet-700 text-white shadow-lg safe-top">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
             <img src="/logo.png" alt="EquiPlan" className="w-9 h-9 object-contain rounded-lg bg-white/10 p-0.5 shrink-0" />
