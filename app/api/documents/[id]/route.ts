@@ -4,7 +4,8 @@ import { verifySession } from "@/lib/auth";
 import { readFile } from "fs/promises";
 import path from "path";
 
-const UPLOAD_DIR = path.join(process.cwd(), "data", "uploads");
+const DB_DIR = process.env.DB_DIR ?? path.join(process.cwd(), "data");
+const UPLOAD_DIR = path.join(DB_DIR, "uploads");
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await verifySession(req);

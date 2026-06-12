@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { verifySession } from "@/lib/auth";
-import { writeFile } from "fs/promises";
+import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomBytes } from "crypto";
 
-const UPLOAD_DIR = path.join(process.cwd(), "data", "uploads");
+const DB_DIR = process.env.DB_DIR ?? path.join(process.cwd(), "data");
+const UPLOAD_DIR = path.join(DB_DIR, "uploads");
 
 export async function GET(req: NextRequest) {
   const session = await verifySession(req);
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
   const filename = randomBytes(16).toString("hex") + ".pdf";
   const filePath = path.join(UPLOAD_DIR, filename);
 
+  await mkdir(UPLOAD_DIR, { recursive: true });
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(filePath, buffer);
 
