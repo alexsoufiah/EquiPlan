@@ -53,6 +53,30 @@ async function registerPush() {
 }
 
 // ── Welcome + Login ──────────────────────────────────────────────────────────
+function InstallBanner() {
+  const [show, setShow] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone = (navigator as any).standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+    setIsIOS(ios);
+    setShow(!standalone);
+  }, []);
+
+  if (!show) return null;
+
+  return (
+    <div className="mt-4 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-indigo-100 text-center">
+      {isIOS ? (
+        <>📲 Tippe auf <strong>Teilen</strong> → <strong>„Zum Home-Bildschirm"</strong> um EquiPlan wie eine App zu installieren.</>
+      ) : (
+        <>📲 Tippe auf das Menü deines Browsers → <strong>„App installieren"</strong> um EquiPlan auf dem Homescreen zu speichern.</>
+      )}
+    </div>
+  );
+}
+
 function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
   const [screen, setScreen] = useState<"welcome" | "login" | "contact">("welcome");
   const [password, setPassword] = useState("");
@@ -117,6 +141,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
                 Interesse? Jetzt anfragen
               </button>
             </div>
+            <InstallBanner />
           </div>
 
         ) : screen === "contact" ? (
