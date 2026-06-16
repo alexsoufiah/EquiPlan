@@ -1366,10 +1366,12 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
   if (isAdmin) {
     // Nur echte Platz-Überschneidungen (gleicher Platz, gleiche Zeit).
     // Gleiche Teamnamen sind KEIN Konflikt – große Teams teilen sich selbst auf.
+    // "Pause" zählt nicht als Belegung – dort passiert nichts, also kein Konflikt.
     for (let i = 0; i < entries.length; i++) {
       for (let j = i + 1; j < entries.length; j++) {
         const a = entries[i], b = entries[j];
         if (!a.arena_id || !b.arena_id || a.arena_id !== b.arena_id) continue;
+        if (a.phase === "pause" || b.phase === "pause") continue;
         const overlap = toMin(a.start_time) < toMin(b.end_time) && toMin(b.start_time) < toMin(a.end_time);
         if (overlap) { conflictIds.add(a.id); conflictIds.add(b.id); }
       }
