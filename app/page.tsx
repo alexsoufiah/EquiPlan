@@ -90,12 +90,18 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const res = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
-    if (res.ok) {
-      const data = await res.json();
-      onLogin({ role: data.role, teamId: data.teamId, teamName: data.teamName, speakerId: data.speakerId, speakerName: data.speakerName, speakerRole: data.speakerRole, speakerColor: data.speakerColor, adminName: data.adminName, adminTournamentId: data.adminTournamentId });
-    } else {
-      setError("Falsches Passwort");
+    try {
+      const res = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+      if (res.ok) {
+        const data = await res.json();
+        onLogin({ role: data.role, teamId: data.teamId, teamName: data.teamName, speakerId: data.speakerId, speakerName: data.speakerName, speakerRole: data.speakerRole, speakerColor: data.speakerColor, adminName: data.adminName, adminTournamentId: data.adminTournamentId });
+      } else if (res.status === 401 || res.status === 403) {
+        setError("Passwort nicht erkannt. Bitte prüfe deine Eingabe.");
+      } else {
+        setError("Server-Fehler. Bitte versuche es später erneut.");
+      }
+    } catch {
+      setError("Keine Verbindung. Prüfe deine Internetverbindung.");
     }
     setLoading(false);
   }
@@ -170,6 +176,9 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
                     className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                     placeholder="Zugangspasswort eingeben" autoFocus
                   />
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                    Dein persönliches Passwort erhältst du vom Veranstalter. Damit wirst du automatisch als Helfer, Team, Sprecher oder Admin erkannt.
+                  </p>
                 </div>
                 {error && <p className="text-red-500 text-sm">{error}</p>}
                 <button type="submit" disabled={loading}
@@ -419,13 +428,51 @@ function isEntryDone(entry: ScheduleEntry): boolean {
   return end < now;
 }
 
+function isEntryLive(entry: ScheduleEntry): boolean {
+  const now = new Date();
+  const start = new Date(`${entry.date}T${entry.start_time}:00`);
+  const end = new Date(`${entry.date}T${entry.end_time}:00`);
+  return start <= now && now <= end;
+}
+
+// Lesbare Textfarbe (schwarz/weiß) für einen beliebigen Hex-Hintergrund
+function readableTextColor(hex: string): string {
+  const m = hex.replace("#", "");
+  const full = m.length === 3 ? m.split("").map(c => c + c).join("") : m;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  // relative Helligkeit (YIQ)
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 140 ? "#1f2937" : "#ffffff";
+}
+
+// Liste der Turniertage als Datum-Strings (start..end inklusiv)
+function tournamentDays(start?: string, end?: string): string[] {
+  if (!start) return [];
+  const last = end && end >= start ? end : start;
+  const days: string[] = [];
+  let d = start;
+  for (let i = 0; i < 60 && d <= last; i++) { days.push(d); d = addDays(d, 1); }
+  return days;
+}
+
+const LiveBadge = () => (
+  <span className="ml-1 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-red-600 text-white align-middle">
+    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Jetzt
+  </span>
+);
+
 function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamId?: number; session?: AppSession | null }) {
   const [open, setOpen] = useState(false);
   const done = isEntryDone(entry);
+  const live = !done && isEntryLive(entry);
   const isMyTeam = myTeamId != null && entry.teams?.some(t => t.id === myTeamId);
   const phase = PHASE_CONFIG[entry.phase] ?? PHASE_CONFIG.pause;
   const { overrides } = useContext(PhaseOverridesContext);
   const overrideColor = overrides[entry.phase];
+  const txtColor = overrideColor ? readableTextColor(overrideColor) : undefined;
+  const liveRing = live ? "ring-2 ring-red-400 dark:ring-red-500/70 shadow-md" : "";
 
   const cardContent = (
     <>
@@ -449,7 +496,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
           </div>
         </div>
       ) : isMyTeam ? (
-        <div className="rounded-xl border-l-4 border-violet-500 bg-violet-50 dark:bg-[#1c1c2e] p-3 space-y-1 ring-2 ring-violet-300 dark:ring-violet-800 shadow-md cursor-pointer hover:brightness-95 transition">
+        <div className={`rounded-xl border-l-4 border-violet-500 bg-violet-50 dark:bg-[#1c1c2e] p-3 space-y-1 shadow-md cursor-pointer hover:brightness-95 transition ${live ? "ring-2 ring-red-400 dark:ring-red-500/70" : "ring-2 ring-violet-300 dark:ring-violet-800"}`}>
           <div className="flex items-start justify-between gap-2">
             <div>
               <span className="font-bold text-violet-900 dark:text-violet-300">
@@ -458,6 +505,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
               </span>
               <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border}`}>{phase.label}</span>
               <span className="ml-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-violet-600 text-white">Ihr Einsatz</span>
+              {live && <LiveBadge />}
             </div>
             <span className="text-sm font-mono font-bold text-violet-700 dark:text-violet-400 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
           </div>
@@ -477,16 +525,17 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
           {entry.notes && <p className="text-xs text-violet-700 dark:text-violet-400 mt-1 italic">{entry.notes}</p>}
         </div>
       ) : (
-        <div className={`rounded-xl border-l-4 ${phase.border} ${phase.bg} p-3 space-y-1 cursor-pointer hover:brightness-95 transition`} style={overrideColor ? { backgroundColor: overrideColor, borderLeftColor: overrideColor } : undefined}>
+        <div className={`rounded-xl border-l-4 ${phase.border} ${phase.bg} ${liveRing} p-3 space-y-1 cursor-pointer hover:brightness-95 transition`} style={overrideColor ? { backgroundColor: overrideColor, borderLeftColor: overrideColor } : undefined}>
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="font-semibold text-gray-800 dark:text-gray-100">
-                {entry.pruefungs_id && <span className="text-gray-400 dark:text-gray-500 font-normal mr-1">{entry.pruefungs_id}</span>}
+              <span className="font-semibold text-gray-800 dark:text-gray-100" style={txtColor ? { color: txtColor } : undefined}>
+                {entry.pruefungs_id && <span className="text-gray-400 dark:text-gray-500 font-normal mr-1" style={txtColor ? { color: txtColor, opacity: 0.7 } : undefined}>{entry.pruefungs_id}</span>}
                 {entry.title}
               </span>
               <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border}`}>{phase.label}</span>
+              {live && <LiveBadge />}
             </div>
-            <span className="text-sm font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
+            <span className="text-sm font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap" style={txtColor ? { color: txtColor } : undefined}>{entry.start_time}–{entry.end_time}</span>
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-gray-600 dark:text-gray-300">
             {entry.arena_name && <span className="bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
@@ -498,7 +547,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
             )}
           </div>
           {entry.external_source && <span className="text-xs bg-gray-100 dark:bg-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5 text-gray-400">via {entry.external_source}</span>}
-          {entry.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">{entry.notes}</p>}
+          {entry.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic" style={txtColor ? { color: txtColor, opacity: 0.85 } : undefined}>{entry.notes}</p>}
           {(entry.helpers_needed ?? 0) > 0 && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 w-fit mt-1">
               🙋 {entry.helpers_needed} Helfer gesucht{entry.helpers_task ? ` · ${entry.helpers_task}` : ""}
@@ -876,22 +925,23 @@ export default function App() {
                 🎙 {session.speakerName} · {session.speakerRole}
               </span>
             )}
-            <button onClick={togglePush} className="p-2 rounded-lg hover:bg-indigo-700 transition">
+            <button onClick={togglePush} className="p-2 rounded-lg hover:bg-indigo-700 transition" title={pushEnabled ? "Benachrichtigungen aktiv" : "Benachrichtigungen aktivieren"} aria-label={pushEnabled ? "Benachrichtigungen aktiv" : "Benachrichtigungen aktivieren"}>
               {pushEnabled ? <Bell size={18} /> : <BellOff size={18} />}
             </button>
-            <button onClick={() => activeTournament && loadEntries(activeTournament.id, selectedDate)} className="p-2 rounded-lg hover:bg-indigo-700 transition">
+            <button onClick={() => activeTournament && loadEntries(activeTournament.id, selectedDate)} className="p-2 rounded-lg hover:bg-indigo-700 transition" title="Aktualisieren" aria-label="Aktualisieren">
               <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
             </button>
             {session?.role === "admin" && (
               <button onClick={() => setView(v => v === "admin" ? "schedule" : "admin")}
-                className={`p-2 rounded-lg transition ${view === "admin" ? "bg-indigo-500" : "hover:bg-indigo-700"}`}>
+                className={`p-2 rounded-lg transition ${view === "admin" ? "bg-indigo-500" : "hover:bg-indigo-700"}`}
+                title={view === "admin" ? "Zum Zeitplan" : "Verwaltung öffnen"} aria-label={view === "admin" ? "Zum Zeitplan" : "Verwaltung öffnen"}>
                 <Settings size={18} />
               </button>
             )}
-            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-indigo-700 transition" title={theme === "dark" ? "Hellmodus" : "Dunkelmodus"}>
+            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-indigo-700 transition" title={theme === "dark" ? "Hellmodus" : "Dunkelmodus"} aria-label={theme === "dark" ? "Hellmodus" : "Dunkelmodus"}>
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button onClick={handleLogout} className="p-2 rounded-lg hover:bg-indigo-700 transition"><LogOut size={18} /></button>
+            <button onClick={handleLogout} className="p-2 rounded-lg hover:bg-indigo-700 transition" title="Abmelden" aria-label="Abmelden"><LogOut size={18} /></button>
           </div>
         </div>
         <div className="bg-black/20 px-4 py-1.5 flex items-center gap-3 text-xs text-indigo-100">
@@ -908,7 +958,7 @@ export default function App() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-4 py-6">
-          {view === "schedule" && <ScheduleTab entries={entries} selectedDate={selectedDate} setSelectedDate={setSelectedDate} session={session} onRefresh={() => loadEntries(activeTournament.id, selectedDate)} activeTournamentId={activeTournament.id} />}
+          {view === "schedule" && <ScheduleTab entries={entries} selectedDate={selectedDate} setSelectedDate={setSelectedDate} session={session} onRefresh={() => loadEntries(activeTournament.id, selectedDate)} activeTournamentId={activeTournament.id} tournament={activeTournament} />}
           {view === "admin" && <AdminTab onRefresh={() => loadEntries(activeTournament.id, selectedDate)} activeTournamentId={activeTournament.id} session={session} />}
         </div>
       </main>
@@ -1176,13 +1226,16 @@ function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEnt
   );
 }
 
-function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefresh, activeTournamentId }: {
-  entries: ScheduleEntry[]; selectedDate: string; setSelectedDate: (d: string) => void; session: AppSession | null; onRefresh: () => void; activeTournamentId?: number;
+function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefresh, activeTournamentId, tournament }: {
+  entries: ScheduleEntry[]; selectedDate: string; setSelectedDate: (d: string) => void; session: AppSession | null; onRefresh: () => void; activeTournamentId?: number; tournament?: Tournament | null;
 }) {
   void onRefresh;
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const canFilterOwn = session?.role === "team" || session?.role === "speaker";
   const [showOnlyMine, setShowOnlyMine] = useState(canFilterOwn);
+
+  const days = tournamentDays(tournament?.start_date, tournament?.end_date);
+  const todayStr = today();
 
   const filteredEntries = showOnlyMine && canFilterOwn
     ? entries.filter(e => {
@@ -1195,6 +1248,39 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
   const myTeamId = session?.teamId;
   return (
     <div>
+      {/* Turniertag-Tabs */}
+      {days.length > 1 && (
+        <div className="flex gap-2 mb-3 overflow-x-auto pb-1 -mx-1 px-1">
+          {days.map((d, i) => {
+            const active = d === selectedDate;
+            const isToday = d === todayStr;
+            const dd = new Date(d + "T00:00:00");
+            return (
+              <button
+                key={d}
+                onClick={() => setSelectedDate(d)}
+                className={`shrink-0 px-3 py-2 rounded-xl border text-center transition ${
+                  active
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow"
+                    : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+              >
+                <div className="text-[10px] uppercase tracking-wide opacity-80 leading-none">
+                  {dd.toLocaleDateString("de-DE", { weekday: "short" })}
+                </div>
+                <div className="text-sm font-bold leading-tight mt-0.5">
+                  Tag {i + 1}
+                </div>
+                <div className={`text-[10px] leading-none mt-0.5 ${active ? "text-indigo-100" : "text-gray-400 dark:text-gray-500"}`}>
+                  {dd.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
+                  {isToday && <span className={`ml-1 ${active ? "text-white" : "text-red-500"}`}>● heute</span>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 shadow-sm gap-2">
         <button
           onClick={() => setSelectedDate(addDays(selectedDate, -1))}
