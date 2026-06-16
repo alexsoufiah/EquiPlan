@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { sendPushNotification } from "@/lib/push";
+import { sendTargetedPush } from "@/lib/push";
 import { broadcast } from "@/lib/sse";
 import type Database from "better-sqlite3";
 
@@ -75,12 +75,15 @@ export async function POST(req: NextRequest) {
 
   if (Array.isArray(team_ids) && team_ids.length > 0) setTeams(db, result.lastInsertRowid, team_ids);
 
-  const tournament = tournament_id ? (db.prepare("SELECT name FROM tournaments WHERE id = ?").get(tournament_id) as { name: string } | undefined)?.name : "";
   db.prepare("INSERT INTO change_log (tournament_id, action, entry_id, description) VALUES (?, ?, ?, ?)").run(
     tournament_id || null, "create", result.lastInsertRowid, `Neuer Eintrag: ${title} am ${date}`
   );
 
-  await sendPushNotification("Zeitplan aktualisiert", `${tournament ? `[${tournament}] ` : ""}Neuer Eintrag: ${title} am ${date} ${start_time}–${end_time}`);
+  await sendTargetedPush(
+    { teamIds: Array.isArray(team_ids) ? team_ids : [], speakerId: speaker_id || null },
+    "Neuer Einsatz für dich",
+    `${title} am ${date} · ${start_time}–${end_time}`,
+  );
   broadcast("update", { action: "create", tournament_id, date });
 
   const entry = db.prepare(`${ENTRY_QUERY} WHERE e.id = ?`).get(result.lastInsertRowid);

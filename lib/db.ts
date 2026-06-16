@@ -129,7 +129,23 @@ function initSchema(db: Database.Database) {
       color TEXT NOT NULL DEFAULT '#6366f1',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Verspätungen pro Turnier/Tag/Platz (arena_id = 0 => gilt für den ganzen Tag)
+    CREATE TABLE IF NOT EXISTS arena_delays (
+      tournament_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      arena_id INTEGER NOT NULL DEFAULT 0,
+      minutes INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (tournament_id, date, arena_id)
+    );
   `);
+
+  // Push-Subscriptions: Ziel-Infos für gezielte Benachrichtigungen
+  const subCols = (db.prepare("PRAGMA table_info(push_subscriptions)").all() as { name: string }[]).map(c => c.name);
+  if (!subCols.includes("role")) db.exec("ALTER TABLE push_subscriptions ADD COLUMN role TEXT");
+  if (!subCols.includes("team_id")) db.exec("ALTER TABLE push_subscriptions ADD COLUMN team_id INTEGER");
+  if (!subCols.includes("speaker_id")) db.exec("ALTER TABLE push_subscriptions ADD COLUMN speaker_id INTEGER");
 
   const cols = (db.prepare("PRAGMA table_info(schedule_entries)").all() as { name: string }[]).map(c => c.name);
   if (!cols.includes("pruefungs_id")) db.exec("ALTER TABLE schedule_entries ADD COLUMN pruefungs_id TEXT");

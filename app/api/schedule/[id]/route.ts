@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { sendPushNotification } from "@/lib/push";
+import { sendTargetedPush } from "@/lib/push";
 import { broadcast } from "@/lib/sse";
 import type Database from "better-sqlite3";
 
@@ -53,7 +53,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     "update", id, `Eintrag geändert: ${title} am ${date}`
   );
 
-  await sendPushNotification("Zeitplan geändert", `Eintrag aktualisiert: ${title} am ${date} ${start_time}–${end_time}`);
+  await sendTargetedPush(
+    { teamIds: Array.isArray(team_ids) ? team_ids : [], speakerId: speaker_id || null },
+    "Änderung bei deinem Einsatz",
+    `${title} am ${date} · ${start_time}–${end_time}`,
+  );
   broadcast("update", { action: "update", tournament_id, date });
 
   const entry = db.prepare(`${ENTRY_QUERY} WHERE e.id = ?`).get(id);
@@ -67,15 +71,21 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params;
   const db = getDb();
 
-  const entry = db.prepare("SELECT * FROM schedule_entries WHERE id = ?").get(id) as { title: string; date: string } | undefined;
+  const entry = db.prepare("SELECT * FROM schedule_entries WHERE id = ?").get(id) as { title: string; date: string; speaker_id: number | null } | undefined;
   if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const teamIds = (db.prepare("SELECT team_id FROM schedule_entry_teams WHERE entry_id = ?").all(id) as { team_id: number }[]).map(r => r.team_id);
 
   db.prepare("DELETE FROM schedule_entries WHERE id = ?").run(id);
   db.prepare("INSERT INTO change_log (action, entry_id, description) VALUES (?, ?, ?)").run(
     "delete", id, `Eintrag gelöscht: ${entry.title} am ${entry.date}`
   );
 
-  await sendPushNotification("Zeitplan geändert", `Eintrag entfernt: ${entry.title} am ${entry.date}`);
+  await sendTargetedPush(
+    { teamIds, speakerId: entry.speaker_id },
+    "Einsatz abgesagt",
+    `${entry.title} am ${entry.date} wurde entfernt.`,
+  );
   broadcast("update", { action: "delete" });
 
   return NextResponse.json({ ok: true });

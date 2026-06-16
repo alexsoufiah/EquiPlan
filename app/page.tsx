@@ -5,6 +5,21 @@ import { useTheme } from "@/lib/theme";
 
 const PhaseOverridesContext = createContext<{ overrides: Record<string, string>; setOverrides: (v: Record<string, string>) => void }>({ overrides: {}, setOverrides: () => {} });
 
+// Verspätungen: arenaId -> Minuten (Schlüssel 0 = gilt für den ganzen Tag)
+const DelayContext = createContext<Record<number, number>>({});
+
+function addMinutesToTime(hhmm: string, min: number): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = h * 60 + m + min;
+  const wrapped = ((total % 1440) + 1440) % 1440;
+  return `${String(Math.floor(wrapped / 60)).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
+}
+
+function effectiveDelay(delays: Record<number, number>, arenaId?: number): number {
+  if (arenaId != null && delays[arenaId] != null) return delays[arenaId];
+  return delays[0] ?? 0;
+}
+
 // Types
 interface Speaker { id: number; name: string; role: string; color: string; has_password?: number; }
 interface Arena { id: number; name: string; description?: string; }
@@ -465,14 +480,31 @@ const LiveBadge = () => (
 
 function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamId?: number; session?: AppSession | null }) {
   const [open, setOpen] = useState(false);
-  const done = isEntryDone(entry);
-  const live = !done && isEntryLive(entry);
+  const delays = useContext(DelayContext);
+  const delayMin = effectiveDelay(delays, entry.arena_id);
+  // Anzeige-Zeiten inkl. Verspätung
+  const dispStart = delayMin ? addMinutesToTime(entry.start_time, delayMin) : entry.start_time;
+  const dispEnd = delayMin ? addMinutesToTime(entry.end_time, delayMin) : entry.end_time;
+  const effEntry = delayMin ? { ...entry, start_time: dispStart, end_time: dispEnd } : entry;
+  const done = isEntryDone(effEntry);
+  const live = !done && isEntryLive(effEntry);
   const isMyTeam = myTeamId != null && entry.teams?.some(t => t.id === myTeamId);
   const phase = PHASE_CONFIG[entry.phase] ?? PHASE_CONFIG.pause;
   const { overrides } = useContext(PhaseOverridesContext);
   const overrideColor = overrides[entry.phase];
   const txtColor = overrideColor ? readableTextColor(overrideColor) : undefined;
   const liveRing = live ? "ring-2 ring-red-400 dark:ring-red-500/70 shadow-md" : "";
+
+  // Zeit-Anzeige: bei Verspätung neue Zeit + durchgestrichene Originalzeit
+  const timeDisplay = (className?: string, style?: React.CSSProperties) =>
+    delayMin ? (
+      <span className={className} style={style}>
+        <span className="line-through opacity-50 mr-1">{entry.start_time}</span>
+        <span className="text-red-600 dark:text-red-400 font-semibold">{dispStart}–{dispEnd}</span>
+      </span>
+    ) : (
+      <span className={className} style={style}>{entry.start_time}–{entry.end_time}</span>
+    );
 
   const cardContent = (
     <>
@@ -488,7 +520,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
                 {phase.label} · Abgeschlossen
               </span>
             </div>
-            <span className="text-sm font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
+            {timeDisplay("text-sm font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap")}
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-gray-400 dark:text-gray-500">
             {entry.arena_name && <span className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
@@ -507,7 +539,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
               <span className="ml-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-violet-600 text-white">Ihr Einsatz</span>
               {live && <LiveBadge />}
             </div>
-            <span className="text-sm font-mono font-bold text-violet-700 dark:text-violet-400 whitespace-nowrap">{entry.start_time}–{entry.end_time}</span>
+            {timeDisplay("text-sm font-mono font-bold text-violet-700 dark:text-violet-400 whitespace-nowrap")}
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
             {entry.arena_name && <span className="bg-white dark:bg-gray-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded px-2 py-0.5 text-violet-700">📍 {entry.arena_name}</span>}
@@ -535,7 +567,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
               <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border}`}>{phase.label}</span>
               {live && <LiveBadge />}
             </div>
-            <span className="text-sm font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap" style={txtColor ? { color: txtColor } : undefined}>{entry.start_time}–{entry.end_time}</span>
+            {timeDisplay("text-sm font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap", txtColor ? { color: txtColor } : undefined)}
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-gray-600 dark:text-gray-300">
             {entry.arena_name && <span className="bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
@@ -753,9 +785,17 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(today());
   const [pushEnabled, setPushEnabled] = useState(false);
   const [phaseOverrides, setPhaseOverrides] = useState<Record<string, string>>({});
+  const [delays, setDelays] = useState<Record<number, number>>({});
 
   useEffect(() => {
     fetch("/api/phases").then(r => r.json()).then(d => { if (d?.overrides) setPhaseOverrides(d.overrides); }).catch(() => {});
+  }, []);
+
+  // Service Worker registrieren (Offline-Cache + Push)
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -787,12 +827,25 @@ export default function App() {
     if (res.ok) setTournaments(await res.json());
   }, []);
 
+  const loadDelays = useCallback(async (tournamentId: number, date: string) => {
+    try {
+      const res = await fetch(`/api/delays?tournament_id=${tournamentId}&date=${date}`);
+      if (res.ok) {
+        const rows = (await res.json()) as { arena_id: number; minutes: number }[];
+        const map: Record<number, number> = {};
+        for (const r of rows) map[r.arena_id] = r.minutes;
+        setDelays(map);
+      }
+    } catch { /* offline – behalte alte Werte */ }
+  }, []);
+
   const loadEntries = useCallback(async (tournamentId: number, date: string) => {
     setLoading(true);
     const res = await fetch(`/api/schedule?tournament_id=${tournamentId}&date=${date}`);
     if (res.ok) setEntries(await res.json());
+    loadDelays(tournamentId, date);
     setLoading(false);
-  }, []);
+  }, [loadDelays]);
 
   useEffect(() => { if (session) loadTournaments(); }, [session, loadTournaments]);
 
@@ -891,6 +944,7 @@ export default function App() {
 
   return (
     <PhaseOverridesContext.Provider value={{ overrides: phaseOverrides, setOverrides: setPhaseOverrides }}>
+    <DelayContext.Provider value={delays}>
     <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-950 overflow-hidden">
       {showOnboarding && session && (
         <OnboardingOverlay session={session} onDone={() => setShowOnboarding(false)} />
@@ -958,11 +1012,12 @@ export default function App() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-4 py-6">
-          {view === "schedule" && <ScheduleTab entries={entries} selectedDate={selectedDate} setSelectedDate={setSelectedDate} session={session} onRefresh={() => loadEntries(activeTournament.id, selectedDate)} activeTournamentId={activeTournament.id} tournament={activeTournament} />}
+          {view === "schedule" && <ScheduleTab entries={entries} selectedDate={selectedDate} setSelectedDate={setSelectedDate} session={session} onRefresh={() => loadEntries(activeTournament.id, selectedDate)} activeTournamentId={activeTournament.id} tournament={activeTournament} delays={delays} onDelaysChanged={() => loadDelays(activeTournament.id, selectedDate)} />}
           {view === "admin" && <AdminTab onRefresh={() => loadEntries(activeTournament.id, selectedDate)} activeTournamentId={activeTournament.id} session={session} />}
         </div>
       </main>
     </div>
+    </DelayContext.Provider>
     </PhaseOverridesContext.Provider>
   );
 }
@@ -1226,18 +1281,46 @@ function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEnt
   );
 }
 
-function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefresh, activeTournamentId, tournament }: {
-  entries: ScheduleEntry[]; selectedDate: string; setSelectedDate: (d: string) => void; session: AppSession | null; onRefresh: () => void; activeTournamentId?: number; tournament?: Tournament | null;
+function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefresh, activeTournamentId, tournament, delays, onDelaysChanged }: {
+  entries: ScheduleEntry[]; selectedDate: string; setSelectedDate: (d: string) => void; session: AppSession | null; onRefresh: () => void; activeTournamentId?: number; tournament?: Tournament | null; delays: Record<number, number>; onDelaysChanged: () => void;
 }) {
   void onRefresh;
+  const isAdmin = session?.role === "admin";
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const canFilterOwn = session?.role === "team" || session?.role === "speaker";
   const [showOnlyMine, setShowOnlyMine] = useState(canFilterOwn);
+  const [search, setSearch] = useState("");
+  const [arenaFilter, setArenaFilter] = useState<number | "all">("all");
+  const [showDelayPanel, setShowDelayPanel] = useState(false);
 
   const days = tournamentDays(tournament?.start_date, tournament?.end_date);
   const todayStr = today();
 
-  const filteredEntries = showOnlyMine && canFilterOwn
+  // Plätze, die an diesem Tag tatsächlich Einträge haben
+  const arenasToday = (() => {
+    const map = new Map<number, string>();
+    for (const e of entries) if (e.arena_id) map.set(e.arena_id, e.arena_name ?? `Platz ${e.arena_id}`);
+    return Array.from(map, ([id, name]) => ({ id, name }));
+  })();
+
+  // Konflikte erkennen (nur für Admins relevant): gleicher Platz + Zeitüberlappung,
+  // oder dasselbe Team in zwei sich überlappenden Einträgen.
+  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const conflictIds = new Set<number>();
+  if (isAdmin) {
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const a = entries[i], b = entries[j];
+        const overlap = toMin(a.start_time) < toMin(b.end_time) && toMin(b.start_time) < toMin(a.end_time);
+        if (!overlap) continue;
+        const sameArena = a.arena_id && b.arena_id && a.arena_id === b.arena_id;
+        const sharedTeam = a.teams.some(t => b.teams.some(u => u.id === t.id));
+        if (sameArena || sharedTeam) { conflictIds.add(a.id); conflictIds.add(b.id); }
+      }
+    }
+  }
+
+  const ownFiltered = showOnlyMine && canFilterOwn
     ? entries.filter(e => {
         if (session?.role === "team") return e.teams.some(t => t.id === session.teamId);
         if (session?.role === "speaker") return e.speaker_id === session.speakerId;
@@ -1245,7 +1328,32 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
       })
     : entries;
 
+  const q = search.trim().toLowerCase();
+  const filteredEntries = ownFiltered.filter(e => {
+    if (arenaFilter !== "all" && e.arena_id !== arenaFilter) return false;
+    if (q) {
+      const hay = `${e.title} ${e.pruefungs_id ?? ""} ${e.arena_name ?? ""} ${e.speaker_name ?? ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Auto-Scroll zum aktuell laufenden Eintrag
+  const liveRef = useRef<HTMLDivElement | null>(null);
+  const liveEntryId = (() => {
+    for (const e of filteredEntries) {
+      const dly = effectiveDelay(delays, e.arena_id);
+      const eff = dly ? { ...e, start_time: addMinutesToTime(e.start_time, dly), end_time: addMinutesToTime(e.end_time, dly) } : e;
+      if (!isEntryDone(eff) && isEntryLive(eff)) return e.id;
+    }
+    return null;
+  })();
+  useEffect(() => {
+    if (liveRef.current) liveRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [liveEntryId, viewMode]);
+
   const myTeamId = session?.teamId;
+  const globalDelay = delays[0] ?? 0;
   return (
     <div>
       {/* Turniertag-Tabs */}
@@ -1337,7 +1445,60 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
             {showOnlyMine ? "👤 Nur meine Einsätze" : "👥 Alle Einträge"}
           </button>
         )}
+
+        {arenasToday.length > 1 && (
+          <select
+            value={arenaFilter}
+            onChange={e => setArenaFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium border bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700"
+          >
+            <option value="all">📍 Alle Plätze</option>
+            {arenasToday.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        )}
+
+        {isAdmin && (
+          <button
+            onClick={() => setShowDelayPanel(v => !v)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+              globalDelay || Object.keys(delays).length
+                ? "bg-red-600 text-white border-red-600"
+                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+          >
+            ⏱ Verspätung{globalDelay ? ` +${globalDelay}′` : ""}
+          </button>
+        )}
+
+        {/* Suche */}
+        <div className="flex-1 min-w-[140px]">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="🔍 Suchen (Titel, ID, Platz…)"
+            className="w-full px-3 py-1.5 rounded-lg text-sm border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
       </div>
+
+      {/* Verspätungs-Panel (Admin) */}
+      {isAdmin && showDelayPanel && activeTournamentId && (
+        <DelayPanel
+          tournamentId={activeTournamentId}
+          date={selectedDate}
+          arenas={arenasToday}
+          delays={delays}
+          onChanged={onDelaysChanged}
+        />
+      )}
+
+      {/* Konflikt-Warnung (Admin) */}
+      {isAdmin && conflictIds.size > 0 && (
+        <div className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl px-4 py-2.5 text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
+          <span className="text-base">⚠️</span>
+          <span><strong>{conflictIds.size} Einträge</strong> mit Überschneidung (gleicher Platz oder Team doppelt verplant).</span>
+        </div>
+      )}
 
       {filteredEntries.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -1348,7 +1509,15 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
         </div>
       ) : viewMode === "list" ? (
         <div className="space-y-2">
-          {filteredEntries.map(e => <EntryCard key={e.id} entry={e} myTeamId={myTeamId} session={session} />)}
+          {filteredEntries.map(e => (
+            <div
+              key={e.id}
+              ref={e.id === liveEntryId ? liveRef : undefined}
+              className={conflictIds.has(e.id) ? "rounded-xl outline-dashed outline-2 outline-amber-500/70 outline-offset-1" : ""}
+            >
+              <EntryCard entry={e} myTeamId={myTeamId} session={session} />
+            </div>
+          ))}
         </div>
       ) : (
         <TimelineView entries={filteredEntries} selectedDate={selectedDate} session={session} />
@@ -1356,6 +1525,68 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
 
       {/* Dokumente */}
       {activeTournamentId && <DocumentsViewer tournamentId={activeTournamentId} />}
+    </div>
+  );
+}
+
+// Admin-Panel zum Setzen von Verspätungen (ganzer Tag + pro Platz)
+function DelayPanel({ tournamentId, date, arenas, delays, onChanged }: {
+  tournamentId: number; date: string; arenas: { id: number; name: string }[]; delays: Record<number, number>; onChanged: () => void;
+}) {
+  const [saving, setSaving] = useState<number | null>(null);
+
+  async function setDelay(arenaId: number, minutes: number) {
+    setSaving(arenaId);
+    await fetch("/api/delays", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tournament_id: tournamentId, date, arena_id: arenaId, minutes: Math.max(0, minutes) }),
+    });
+    onChanged();
+    setSaving(null);
+  }
+
+  const renderRow = (id: number, name: string) => {
+    const cur = delays[id] ?? 0;
+    return (
+      <div key={id} className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-200 w-32 shrink-0">{name}</span>
+        <span className={`text-sm font-mono w-16 ${cur ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-400"}`}>
+          {cur ? `+${cur} Min` : "pünktl."}
+        </span>
+        <div className="flex gap-1">
+          {[5, 10, 15].map(step => (
+            <button key={step} disabled={saving === id} onClick={() => setDelay(id, cur + step)}
+              className="text-xs px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">
+              +{step}
+            </button>
+          ))}
+          <button disabled={saving === id || cur === 0} onClick={() => setDelay(id, Math.max(0, cur - 5))}
+            className="text-xs px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40">
+            −5
+          </button>
+          <button disabled={saving === id || cur === 0} onClick={() => setDelay(id, 0)}
+            className="text-xs px-2 py-1 rounded-md bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 hover:bg-red-200 disabled:opacity-40">
+            Zurücksetzen
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="mb-4 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800/60 rounded-xl p-4 space-y-3 shadow-sm">
+      <div>
+        <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">⏱ Verspätung anpassen</h3>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Verschiebt die angezeigten Zeiten live für alle. Original bleibt durchgestrichen sichtbar.</p>
+      </div>
+      {renderRow(0, "Ganzer Tag")}
+      {arenas.length > 0 && (
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Einzelne Plätze (überschreiben den ganzen Tag)</p>
+          {arenas.map(a => renderRow(a.id, a.name))}
+        </div>
+      )}
     </div>
   );
 }

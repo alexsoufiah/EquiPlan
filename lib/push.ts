@@ -52,3 +52,39 @@ export async function sendPushNotification(title: string, body: string) {
     expiredEndpoints.forEach((ep) => del.run(ep));
   }
 }
+
+// Gezielte Benachrichtigung: nur an die zugewiesenen Teams + den Sprecher.
+// Admins werden bewusst NICHT benachrichtigt (sie lösen die Änderung selbst aus).
+export async function sendTargetedPush(
+  targets: { teamIds?: number[]; speakerId?: number | null },
+  title: string,
+  body: string,
+) {
+  const teamIds = targets.teamIds?.filter(Boolean) ?? [];
+  const speakerId = targets.speakerId ?? null;
+  if (teamIds.length === 0 && !speakerId) return;
+
+  initVapid();
+  const db = getDb();
+
+  const conds: string[] = [];
+  const args: (number | string)[] = [];
+  if (teamIds.length > 0) {
+    conds.push(`team_id IN (${teamIds.map(() => "?").join(",")})`);
+    args.push(...teamIds);
+  }
+  if (speakerId) { conds.push("speaker_id = ?"); args.push(speakerId); }
+
+  const subs = db.prepare(
+    `SELECT endpoint, subscription FROM push_subscriptions WHERE ${conds.join(" OR ")}`
+  ).all(...args) as { endpoint: string; subscription: string }[];
+  if (subs.length === 0) return;
+
+  const payload = JSON.stringify({ title, body, icon: "/icon.png" });
+  const results = await Promise.allSettled(
+    subs.map((s) => webpush.sendNotification(JSON.parse(s.subscription), payload))
+  );
+
+  const del = db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
+  subs.forEach((s, i) => { if (results[i].status === "rejected") del.run(s.endpoint); });
+}
