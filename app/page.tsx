@@ -33,6 +33,7 @@ interface ScheduleEntry {
   teams: { id: number; name: string }[];
   helpers_needed?: number;
   helpers_task?: string;
+  delay_minutes?: number; // Verspätung nur für diesen Programmpunkt
 }
 
 const PHASE_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -481,7 +482,10 @@ const LiveBadge = () => (
 function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamId?: number; session?: AppSession | null }) {
   const [open, setOpen] = useState(false);
   const delays = useContext(DelayContext);
-  const delayMin = effectiveDelay(delays, entry.arena_id);
+  // Einzel-Verspätung (am Eintrag) hat Vorrang vor Platz-/Tages-Verspätung
+  const entryDelay = entry.delay_minutes ?? 0;
+  const delayMin = entryDelay > 0 ? entryDelay : effectiveDelay(delays, entry.arena_id);
+  const singleEvent = entryDelay > 0;
   // Anzeige-Zeiten inkl. Verspätung
   const dispStart = delayMin ? addMinutesToTime(entry.start_time, delayMin) : entry.start_time;
   const dispEnd = delayMin ? addMinutesToTime(entry.end_time, delayMin) : entry.end_time;
@@ -494,6 +498,13 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
   const overrideColor = overrides[entry.phase];
   const txtColor = overrideColor ? readableTextColor(overrideColor) : undefined;
   const liveRing = live ? "ring-2 ring-red-400 dark:ring-red-500/70 shadow-md" : "";
+
+  // Kennzeichnung der Verspätung (einzeln = orange „nur dieser", sonst rot)
+  const delayBadge = delayMin > 0 ? (
+    <span className={`ml-1 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold align-middle ${singleEvent ? "bg-amber-500 text-white" : "bg-red-600 text-white"}`}>
+      ⏱ +{delayMin}′{singleEvent ? " · nur dieser" : ""}
+    </span>
+  ) : null;
 
   // Zeit-Anzeige: bei Verspätung neue Zeit + durchgestrichene Originalzeit
   const timeDisplay = (className?: string, style?: React.CSSProperties) =>
@@ -538,6 +549,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
               <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border}`}>{phase.label}</span>
               <span className="ml-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-violet-600 text-white">Ihr Einsatz</span>
               {live && <LiveBadge />}
+              {delayBadge}
             </div>
             {timeDisplay("text-sm font-mono font-bold text-violet-700 dark:text-violet-400 whitespace-nowrap")}
           </div>
@@ -566,6 +578,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
               </span>
               <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border}`}>{phase.label}</span>
               {live && <LiveBadge />}
+              {delayBadge}
             </div>
             {timeDisplay("text-sm font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap", txtColor ? { color: txtColor } : undefined)}
           </div>
@@ -634,6 +647,20 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [helpers, setHelpers] = useState<HelperEntry[]>([]);
+  const [entryDelay, setEntryDelay] = useState(entry.delay_minutes ?? 0);
+  const [savingDelay, setSavingDelay] = useState(false);
+
+  async function saveEntryDelay(minutes: number) {
+    const m = Math.max(0, minutes);
+    setSavingDelay(true);
+    setEntryDelay(m);
+    await fetch(`/api/schedule/${entry.id}/delay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ minutes: m }),
+    });
+    setSavingDelay(false);
+  }
 
   const loadHelpers = useCallback(async () => {
     if (session?.role !== "admin" && session?.role !== "viewer") return;
@@ -707,6 +734,35 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
           </div>
           {entry.notes && <p className="text-sm text-gray-600 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-800 rounded-lg p-3">{entry.notes}</p>}
           {entry.external_source && <p className="text-xs text-gray-400">Quelle: {entry.external_source}</p>}
+
+          {/* Einzel-Verspätung (Admin) */}
+          {session?.role === "admin" && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">⏱ Verspätung – nur dieser Programmpunkt</h3>
+                <span className={`text-sm font-mono ${entryDelay ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-400"}`}>
+                  {entryDelay ? `+${entryDelay} Min` : "pünktlich"}
+                </span>
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {[5, 10, 15].map(step => (
+                  <button key={step} disabled={savingDelay} onClick={() => saveEntryDelay(entryDelay + step)}
+                    className="text-xs px-2.5 py-1 rounded-md bg-white dark:bg-gray-700 border border-amber-200 dark:border-amber-800 text-gray-700 dark:text-gray-200 hover:bg-amber-100 dark:hover:bg-gray-600 disabled:opacity-50">
+                    +{step}
+                  </button>
+                ))}
+                <button disabled={savingDelay || entryDelay === 0} onClick={() => saveEntryDelay(entryDelay - 5)}
+                  className="text-xs px-2.5 py-1 rounded-md bg-white dark:bg-gray-700 border border-amber-200 dark:border-amber-800 text-gray-700 dark:text-gray-200 hover:bg-amber-100 disabled:opacity-40">
+                  −5
+                </button>
+                <button disabled={savingDelay || entryDelay === 0} onClick={() => saveEntryDelay(0)}
+                  className="text-xs px-2.5 py-1 rounded-md bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 hover:bg-red-200 disabled:opacity-40">
+                  Zurücksetzen
+                </button>
+              </div>
+              <p className="text-[11px] text-amber-700/70 dark:text-amber-400/60">Überschreibt die Platz-/Tages-Verspätung für diesen einen Eintrag. Zugewiesene Teams werden benachrichtigt.</p>
+            </div>
+          )}
         </div>
 
         {/* Helfer */}
@@ -1308,14 +1364,14 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
   const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   const conflictIds = new Set<number>();
   if (isAdmin) {
+    // Nur echte Platz-Überschneidungen (gleicher Platz, gleiche Zeit).
+    // Gleiche Teamnamen sind KEIN Konflikt – große Teams teilen sich selbst auf.
     for (let i = 0; i < entries.length; i++) {
       for (let j = i + 1; j < entries.length; j++) {
         const a = entries[i], b = entries[j];
+        if (!a.arena_id || !b.arena_id || a.arena_id !== b.arena_id) continue;
         const overlap = toMin(a.start_time) < toMin(b.end_time) && toMin(b.start_time) < toMin(a.end_time);
-        if (!overlap) continue;
-        const sameArena = a.arena_id && b.arena_id && a.arena_id === b.arena_id;
-        const sharedTeam = a.teams.some(t => b.teams.some(u => u.id === t.id));
-        if (sameArena || sharedTeam) { conflictIds.add(a.id); conflictIds.add(b.id); }
+        if (overlap) { conflictIds.add(a.id); conflictIds.add(b.id); }
       }
     }
   }
@@ -1496,7 +1552,7 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
       {isAdmin && conflictIds.size > 0 && (
         <div className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl px-4 py-2.5 text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
           <span className="text-base">⚠️</span>
-          <span><strong>{conflictIds.size} Einträge</strong> mit Überschneidung (gleicher Platz oder Team doppelt verplant).</span>
+          <span><strong>{conflictIds.size} Einträge</strong> mit Platz-Überschneidung (gleicher Platz zur gleichen Zeit).</span>
         </div>
       )}
 

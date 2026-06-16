@@ -164,6 +164,7 @@ function initSchema(db: Database.Database) {
   const entryCols2 = (db.prepare("PRAGMA table_info(schedule_entries)").all() as { name: string }[]).map(c => c.name);
   if (!entryCols2.includes("helpers_needed")) db.exec("ALTER TABLE schedule_entries ADD COLUMN helpers_needed INTEGER NOT NULL DEFAULT 0");
   if (!entryCols2.includes("helpers_task")) db.exec("ALTER TABLE schedule_entries ADD COLUMN helpers_task TEXT");
+  if (!entryCols2.includes("delay_minutes")) db.exec("ALTER TABLE schedule_entries ADD COLUMN delay_minutes INTEGER NOT NULL DEFAULT 0");
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS shifts (

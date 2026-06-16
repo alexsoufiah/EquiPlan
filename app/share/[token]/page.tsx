@@ -14,6 +14,7 @@ interface Entry {
   helpers_needed?: number;
   helpers_task?: string;
   helpers_signed_up?: number;
+  delay_minutes?: number; // Einzel-Verspätung am Eintrag
   orig_start?: string; // gesetzt bei Verspätung
   orig_end?: string;
 }
@@ -61,13 +62,14 @@ function addMinutesToTime(hhmm: string, min: number): string {
   const wrapped = ((total % 1440) + 1440) % 1440;
   return `${String(Math.floor(wrapped / 60)).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
 }
-// Verspätung auf Einträge anwenden: Zeiten verschieben, Original merken
+// Verspätung auf Einträge anwenden: Zeiten verschieben, Original merken.
+// Einzel-Verspätung (delay_minutes am Eintrag) hat Vorrang vor Platz-/Tages-Verspätung.
 function applyDelays(entries: Entry[], delays: { arena_id: number; minutes: number }[]): Entry[] {
-  if (!delays.length) return entries;
   const map: Record<number, number> = {};
   for (const d of delays) map[d.arena_id] = d.minutes;
   return entries.map(e => {
-    const d = (e.arena_id != null && map[e.arena_id] != null) ? map[e.arena_id] : (map[0] ?? 0);
+    const single = e.delay_minutes ?? 0;
+    const d = single > 0 ? single : ((e.arena_id != null && map[e.arena_id] != null) ? map[e.arena_id] : (map[0] ?? 0));
     if (!d) return e;
     return { ...e, orig_start: e.start_time, orig_end: e.end_time, start_time: addMinutesToTime(e.start_time, d), end_time: addMinutesToTime(e.end_time, d) };
   });
