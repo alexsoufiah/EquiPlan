@@ -14,6 +14,8 @@ interface Entry {
   helpers_needed?: number;
   helpers_task?: string;
   helpers_signed_up?: number;
+  orig_start?: string; // gesetzt bei Verspätung
+  orig_end?: string;
 }
 interface Tournament { id: number; name: string; location?: string; start_date?: string; end_date?: string; }
 
@@ -53,6 +55,22 @@ function todayStr() {
 function toMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
+}
+function addMinutesToTime(hhmm: string, min: number): string {
+  const total = toMinutes(hhmm) + min;
+  const wrapped = ((total % 1440) + 1440) % 1440;
+  return `${String(Math.floor(wrapped / 60)).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
+}
+// Verspätung auf Einträge anwenden: Zeiten verschieben, Original merken
+function applyDelays(entries: Entry[], delays: { arena_id: number; minutes: number }[]): Entry[] {
+  if (!delays.length) return entries;
+  const map: Record<number, number> = {};
+  for (const d of delays) map[d.arena_id] = d.minutes;
+  return entries.map(e => {
+    const d = (e.arena_id != null && map[e.arena_id] != null) ? map[e.arena_id] : (map[0] ?? 0);
+    if (!d) return e;
+    return { ...e, orig_start: e.start_time, orig_end: e.end_time, start_time: addMinutesToTime(e.start_time, d), end_time: addMinutesToTime(e.end_time, d) };
+  });
 }
 
 const PX_PER_HOUR = 96;
@@ -247,9 +265,10 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
       const t = todayStr();
       setSelectedDate(data.dates.includes(t) ? t : data.dates[0]);
     }
+    const adjusted = applyDelays(data.entries as Entry[], data.delays ?? []);
     setVisibleIds(new Set());
-    setTimeout(() => setVisibleIds(new Set((data.entries as Entry[]).map(e => e.id))), 50);
-    setEntries(data.entries);
+    setTimeout(() => setVisibleIds(new Set(adjusted.map(e => e.id))), 50);
+    setEntries(adjusted);
   }, [token]);
 
   useEffect(() => { load(null, ""); }, [load]);
@@ -447,7 +466,8 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                     <div className="flex items-start gap-3">
                       {/* Zeit */}
                       <div className="shrink-0 text-right w-16">
-                        <p className={`text-sm font-mono font-bold ${running ? "text-violet-200" : done ? "text-gray-600" : "text-white"}`}>
+                        {e.orig_start && <p className="text-[10px] font-mono text-gray-500 line-through leading-none">{e.orig_start}</p>}
+                        <p className={`text-sm font-mono font-bold ${e.orig_start ? "text-red-400" : running ? "text-violet-200" : done ? "text-gray-600" : "text-white"}`}>
                           {e.start_time}
                         </p>
                         <p className={`text-xs font-mono ${done ? "text-gray-700" : "text-gray-400"}`}>{e.end_time}</p>

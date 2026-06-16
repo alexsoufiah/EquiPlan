@@ -63,10 +63,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     "SELECT DISTINCT date FROM schedule_entries WHERE tournament_id = ? ORDER BY date"
   ).all(tournament.id as number) as { date: string }[];
 
+  // Verspätungen für den angefragten Tag (arena_id 0 = ganzer Tag)
+  const delays = date
+    ? db.prepare("SELECT arena_id, minutes FROM arena_delays WHERE tournament_id = ? AND date = ? AND minutes <> 0").all(tournament.id as number, date)
+    : [];
+
   return NextResponse.json({
     tournament: { id: tournament.id, name: tournament.name, location: tournament.location, start_date: tournament.start_date, end_date: tournament.end_date },
     arenas,
     dates: dates.map(d => d.date),
+    delays,
     entries: attachTeams(db, entries as Record<string, unknown>[]),
   });
 }
