@@ -120,6 +120,7 @@ function initSchema(db: Database.Database) {
   const tournCols = (db.prepare("PRAGMA table_info(tournaments)").all() as { name: string }[]).map(c => c.name);
   if (!tournCols.includes("share_token")) db.exec("ALTER TABLE tournaments ADD COLUMN share_token TEXT");
   if (!tournCols.includes("logo_path")) db.exec("ALTER TABLE tournaments ADD COLUMN logo_path TEXT");
+  if (!tournCols.includes("staff_token")) db.exec("ALTER TABLE tournaments ADD COLUMN staff_token TEXT");
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS custom_phases (

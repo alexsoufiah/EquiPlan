@@ -6,7 +6,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const t = getDb().prepare("SELECT id, name, location, start_date, end_date, share_token, logo_path FROM tournaments WHERE id = ?").get(id);
+  const t = getDb().prepare("SELECT id, name, location, start_date, end_date, share_token, staff_token, logo_path FROM tournaments WHERE id = ?").get(id);
   if (!t) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(t);
 }

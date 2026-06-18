@@ -19,7 +19,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const { token } = await params;
   const db = getDb();
 
-  const tournament = db.prepare("SELECT * FROM tournaments WHERE share_token = ?").get(token) as Record<string, unknown> | undefined;
+  // Öffentlicher Anzeige-Token ODER interner Staff-Token (mit Telefonliste)
+  let tournament = db.prepare("SELECT * FROM tournaments WHERE share_token = ?").get(token) as Record<string, unknown> | undefined;
+  let isStaff = false;
+  if (!tournament) {
+    tournament = db.prepare("SELECT * FROM tournaments WHERE staff_token = ?").get(token) as Record<string, unknown> | undefined;
+    if (tournament) isStaff = true;
+  }
   if (!tournament) return NextResponse.json({ error: "Link ungültig oder abgelaufen" }, { status: 404 });
 
   const { searchParams } = new URL(req.url);
@@ -68,11 +74,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     ? db.prepare("SELECT arena_id, minutes FROM arena_delays WHERE tournament_id = ? AND date = ? AND minutes <> 0").all(tournament.id as number, date)
     : [];
 
+  // Beim internen Staff-Link zusätzlich die Telefonliste mitliefern
+  const contacts = isStaff
+    ? db.prepare("SELECT id, name, role, phone FROM contacts WHERE tournament_id = ? ORDER BY sort_order, name").all(tournament.id as number)
+    : [];
+
   return NextResponse.json({
     tournament: { id: tournament.id, name: tournament.name, location: tournament.location, start_date: tournament.start_date, end_date: tournament.end_date },
     arenas,
     dates: dates.map(d => d.date),
     delays,
+    internal: isStaff,
+    contacts,
     entries: attachTeams(db, entries as Record<string, unknown>[]),
   });
 }

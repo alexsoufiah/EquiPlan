@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
-import { LogOut, Settings, Bell, BellOff, RefreshCw, ChevronLeft, ChevronRight, Trophy, ChevronDown, Sun, Moon } from "lucide-react";
+import { LogOut, Settings, Bell, BellOff, RefreshCw, ChevronLeft, ChevronRight, Trophy, ChevronDown, Sun, Moon, Info } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useLang } from "@/lib/i18n";
 
@@ -869,6 +869,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<AppView>("tournament-select");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const activeTournamentRef = useRef<Tournament | null>(null);
 
   useEffect(() => {
@@ -1008,6 +1009,9 @@ export default function App() {
       {showOnboarding && session && (
         <OnboardingOverlay session={session} onDone={() => setShowOnboarding(false)} />
       )}
+      {showInfo && activeTournament && (
+        <InfoModal tournamentId={activeTournament.id} onClose={() => setShowInfo(false)} />
+      )}
       <header className="shrink-0 bg-gradient-to-r from-indigo-800 to-violet-700 text-white shadow-lg safe-top">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
@@ -1040,6 +1044,9 @@ export default function App() {
             )}
             <button onClick={togglePush} className="p-2 rounded-lg hover:bg-indigo-700 transition" title={pushEnabled ? "Benachrichtigungen aktiv" : "Benachrichtigungen aktivieren"} aria-label={pushEnabled ? "Benachrichtigungen aktiv" : "Benachrichtigungen aktivieren"}>
               {pushEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+            </button>
+            <button onClick={() => setShowInfo(true)} className="p-2 rounded-lg hover:bg-indigo-700 transition" title="Infos: Telefonliste & Dokumente" aria-label="Infos">
+              <Info size={18} />
             </button>
             <button onClick={() => activeTournament && loadEntries(activeTournament.id, selectedDate)} className="p-2 rounded-lg hover:bg-indigo-700 transition" title="Aktualisieren" aria-label="Aktualisieren">
               <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
@@ -1588,10 +1595,6 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
       ) : (
         <TimelineView entries={filteredEntries} selectedDate={selectedDate} session={session} />
       )}
-
-      {/* Dokumente */}
-      {activeTournamentId && <ContactsViewer tournamentId={activeTournamentId} />}
-      {activeTournamentId && <DocumentsViewer tournamentId={activeTournamentId} />}
     </div>
   );
 }
@@ -2499,13 +2502,17 @@ function TournamentSettingsTab({ tournamentId, onLogoUpdated }: { tournamentId?:
 
 function ShareTab({ tournamentId }: { tournamentId?: number }) {
   const [token, setToken] = useState<string | null | undefined>(undefined);
-  const [copied, setCopied] = useState(false);
+  const [staffToken, setStaffToken] = useState<string | null>(null);
+  const [copied, setCopied] = useState("");
   const [origin, setOrigin] = useState("");
 
   useEffect(() => {
     setOrigin(window.location.origin);
     if (!tournamentId) return;
-    fetch(`/api/tournaments/${tournamentId}`).then(r => r.ok ? r.json() : null).then(d => setToken(d?.share_token ?? null));
+    fetch(`/api/tournaments/${tournamentId}`).then(r => r.ok ? r.json() : null).then(d => {
+      setToken(d?.share_token ?? null);
+      setStaffToken(d?.staff_token ?? null);
+    });
   }, [tournamentId]);
 
   async function generate() {
@@ -2521,16 +2528,30 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
     setToken(null);
   }
 
-  function copy(url: string) {
+  async function generateStaff() {
+    if (!tournamentId) return;
+    const r = await fetch(`/api/tournaments/${tournamentId}/staff`, { method: "POST" });
+    const d = await r.json();
+    setStaffToken(d.token);
+  }
+
+  async function revokeStaff() {
+    if (!tournamentId || !confirm("Internen Staff-Link wirklich deaktivieren?")) return;
+    await fetch(`/api/tournaments/${tournamentId}/staff`, { method: "DELETE" });
+    setStaffToken(null);
+  }
+
+  function copy(url: string, which: string) {
     navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(which);
+    setTimeout(() => setCopied(""), 2000);
   }
 
   if (!tournamentId) return <p className="text-gray-400 text-sm">Kein Turnier aktiv.</p>;
   if (token === undefined) return <p className="text-gray-400 text-sm">Laden...</p>;
 
   const shareUrl = token ? `${origin}/share/${token}` : null;
+  const staffUrl = staffToken ? `${origin}/share/${staffToken}` : null;
 
   return (
     <div className="space-y-4 max-w-lg">
@@ -2548,8 +2569,8 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Aktiver Link</label>
               <div className="flex gap-2">
                 <code className="flex-1 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-xs font-mono text-indigo-700 break-all">{shareUrl}</code>
-                <button onClick={() => copy(shareUrl)} className="shrink-0 text-xs bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-lg hover:bg-indigo-100 font-medium">
-                  {copied ? "✓" : "Kopieren"}
+                <button onClick={() => copy(shareUrl, "public")} className="shrink-0 text-xs bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-lg hover:bg-indigo-100 font-medium">
+                  {copied === "public" ? "✓" : "Kopieren"}
                 </button>
               </div>
             </div>
@@ -2566,6 +2587,44 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
             <p className="text-sm text-gray-500 mb-3">Noch kein Share-Link aktiv.</p>
             <button onClick={generate} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
               Share-Link generieren
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Interner Staff-Link */}
+      <div className="bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800/60 rounded-xl p-5 space-y-4">
+        <div>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+            <span className="text-lg">🔒</span> Interner Staff-Link
+          </h3>
+          <p className="text-xs text-gray-400 mt-1">Wie der öffentliche Link, zeigt aber zusätzlich die <strong>Telefonliste</strong>. Für Helfer/Dienstleister ohne Login. Nur an interne Personen weitergeben.</p>
+        </div>
+
+        {staffUrl ? (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Aktiver interner Link</label>
+              <div className="flex gap-2">
+                <code className="flex-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 rounded-lg px-3 py-2 text-xs font-mono text-amber-800 dark:text-amber-300 break-all">{staffUrl}</code>
+                <button onClick={() => copy(staffUrl, "staff")} className="shrink-0 text-xs bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg hover:bg-amber-100 font-medium text-amber-800">
+                  {copied === "staff" ? "✓" : "Kopieren"}
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <a href={staffUrl} target="_blank" rel="noopener noreferrer"
+                className="flex-1 text-center text-sm bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-medium transition">
+                Link öffnen →
+              </a>
+              <button onClick={revokeStaff} className="text-sm bg-red-50 text-red-700 border border-red-200 px-3 py-2 rounded-lg hover:bg-red-100 transition">Deaktivieren</button>
+            </div>
+          </>
+        ) : (
+          <div>
+            <p className="text-sm text-gray-500 mb-3">Noch kein interner Link aktiv.</p>
+            <button onClick={generateStaff} className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition">
+              Staff-Link generieren
             </button>
           </div>
         )}
@@ -3138,19 +3197,49 @@ function DocumentsAdminTab({ tournamentId, isSuperAdmin }: { tournamentId?: numb
   );
 }
 
+// ── Infos-Overlay: Telefonliste + Dokumente hinter einem Button ──────────────
+function InfoModal({ tournamentId, onClose }: { tournamentId: number; onClose: () => void }) {
+  const [tab, setTab] = useState<"kontakte" | "dokumente">("kontakte");
+  const tabCls = (active: boolean) =>
+    `flex-1 px-3 py-2 rounded-lg text-sm font-medium transition ${active ? "bg-indigo-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white dark:bg-gray-900 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white dark:bg-gray-900 px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-900 dark:text-gray-100 text-lg">ℹ️ Infos</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none">✕</button>
+          </div>
+          <div className="flex gap-2">
+            <button className={tabCls(tab === "kontakte")} onClick={() => setTab("kontakte")}>📞 Telefonliste</button>
+            <button className={tabCls(tab === "dokumente")} onClick={() => setTab("dokumente")}>📄 Dokumente</button>
+          </div>
+        </div>
+        <div className="p-4">
+          {tab === "kontakte" ? <ContactsViewer tournamentId={tournamentId} embedded /> : <DocumentsViewer tournamentId={tournamentId} embedded />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Telefonliste: Viewer für alle Nutzer (read-only, mit Anruf-Links) ─────────
-function ContactsViewer({ tournamentId }: { tournamentId: number }) {
+function ContactsViewer({ tournamentId, embedded }: { tournamentId: number; embedded?: boolean }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
 
   useEffect(() => {
     fetch(`/api/contacts?tournament_id=${tournamentId}`).then(r => r.ok ? r.json() : []).then(setContacts);
   }, [tournamentId]);
 
-  if (contacts.length === 0) return null;
+  if (contacts.length === 0) {
+    return embedded ? <p className="text-sm text-gray-400 py-4 text-center">Keine Kontakte hinterlegt.</p> : null;
+  }
 
   return (
-    <div className="mt-6">
-      <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Telefonliste</h3>
+    <div className={embedded ? "" : "mt-6"}>
+      {!embedded && <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Telefonliste</h3>}
       <div className="space-y-2">
         {contacts.map(c => (
           <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-3 p-3">
@@ -3174,7 +3263,7 @@ function ContactsViewer({ tournamentId }: { tournamentId: number }) {
 }
 
 // ── Dokumente: Viewer für alle Nutzer ─────────────────────────────────────────
-function DocumentsViewer({ tournamentId }: { tournamentId: number }) {
+function DocumentsViewer({ tournamentId, embedded }: { tournamentId: number; embedded?: boolean }) {
   const [docs, setDocs] = useState<DocMeta[]>([]);
   const [fullscreenDoc, setFullscreenDoc] = useState<DocMeta | null>(null);
 
@@ -3185,11 +3274,13 @@ function DocumentsViewer({ tournamentId }: { tournamentId: number }) {
     ]).then(([general, tournament]) => setDocs([...general, ...tournament]));
   }, [tournamentId]);
 
-  if (docs.length === 0) return null;
+  if (docs.length === 0) {
+    return embedded ? <p className="text-sm text-gray-400 py-4 text-center">Keine Dokumente hinterlegt.</p> : null;
+  }
 
   return (
-    <div className="mt-6">
-      <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Dokumente</h3>
+    <div className={embedded ? "" : "mt-6"}>
+      {!embedded && <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Dokumente</h3>}
       <div className="space-y-2">
         {docs.map(doc => (
           <button

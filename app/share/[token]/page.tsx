@@ -241,6 +241,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const [visibleIds, setVisibleIds] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const [helperEntry, setHelperEntry] = useState<Entry | null>(null);
+  const [internal, setInternal] = useState(false);
+  const [contacts, setContacts] = useState<{ id: number; name: string; role?: string; phone?: string }[]>([]);
+  const [showInfo, setShowInfo] = useState(false);
   const currentRef = useRef<HTMLDivElement>(null);
 
   function onHelperSignedUp(entryId: number) {
@@ -270,6 +273,8 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
       setSelectedDate(data.dates.includes(t) ? t : data.dates[0]);
     }
     const adjusted = applyDelays(data.entries as Entry[], data.delays ?? []);
+    setInternal(!!data.internal);
+    setContacts(Array.isArray(data.contacts) ? data.contacts : []);
     setVisibleIds(new Set());
     setTimeout(() => setVisibleIds(new Set(adjusted.map(e => e.id))), 50);
     setEntries(adjusted);
@@ -356,6 +361,13 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
               )}
             </div>
           </div>
+          {internal && (
+            <button onClick={() => setShowInfo(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-white/15 hover:bg-white/25 transition shrink-0 flex items-center gap-1"
+              title="Telefonliste">
+              📞 Telefonliste
+            </button>
+          )}
           <button onClick={() => setLang(lang === "de" ? "en" : "de")} data-no-translate
             className="px-2 py-1 rounded-lg text-xs font-bold tracking-wide text-indigo-100 hover:bg-white/10 transition shrink-0"
             title={lang === "de" ? "Switch to English" : "Auf Deutsch umschalten"}>
@@ -574,6 +586,37 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
       `}</style>
 
       {helperEntry && <HelperSignupModal entry={helperEntry} token={token} onClose={() => setHelperEntry(null)} onSignedUp={onHelperSignedUp} />}
+      {showInfo && <StaffContactsModal contacts={contacts} onClose={() => setShowInfo(false)} />}
+    </div>
+  );
+}
+
+function StaffContactsModal({ contacts, onClose }: { contacts: { id: number; name: string; role?: string; phone?: string }[]; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-gray-900 border border-white/10 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div className="sticky top-0 bg-gray-900 px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <h2 className="font-bold text-white text-lg">📞 Telefonliste</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">✕</button>
+        </div>
+        <div className="p-4 space-y-2">
+          {contacts.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Keine Kontakte hinterlegt.</p>}
+          {contacts.map(c => (
+            <div key={c.id} className="bg-white/5 border border-white/10 rounded-xl flex items-center gap-3 p-3">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-white truncate">{c.name}{c.role && <span className="font-normal text-gray-400"> · {c.role}</span>}</p>
+              </div>
+              {c.phone && (
+                <a href={`tel:${c.phone.replace(/\s/g, "")}`}
+                  className="shrink-0 text-sm font-medium text-indigo-200 bg-indigo-500/20 border border-indigo-400/30 rounded-lg px-3 py-1.5 hover:bg-indigo-500/30 transition whitespace-nowrap">
+                  📲 {c.phone}
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
