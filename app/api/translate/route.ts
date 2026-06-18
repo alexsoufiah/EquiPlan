@@ -18,11 +18,15 @@ export async function GET(req: NextRequest) {
   const key = getDeeplKey();
   // Welche Variablennamen sind überhaupt gesetzt? (nur Namen, keine Werte)
   const seenVars = ["DEEPL_API_KEY", "DEEPL_AUTH_KEY", "DEEPL_KEY", "DEEPL_TOKEN"].filter(n => !!process.env[n]);
+  // Alle Variablen-Namen, die nach DeepL/Übersetzung aussehen (nur Namen!)
+  const matchingVars = Object.keys(process.env).filter(n => /deepl|translat|deepI/i.test(n));
   const info: Record<string, unknown> = {
     hasKey: !!key,
     keyLength: key?.length ?? 0,
     keyKind: key ? (key.endsWith(":fx") ? "free" : "pro") : null,
     seenVars,
+    matchingVars,
+    totalEnvCount: Object.keys(process.env).length,
   };
   if (key) {
     const endpoint = key.endsWith(":fx")
