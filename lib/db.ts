@@ -148,6 +148,17 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (source, target)
     );
+
+    -- Telefonliste pro Turnier (Name, Rolle/Job, Telefonnummer)
+    CREATE TABLE IF NOT EXISTS contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      role TEXT,
+      phone TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Push-Subscriptions: Ziel-Infos für gezielte Benachrichtigungen

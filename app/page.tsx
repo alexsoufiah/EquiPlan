@@ -25,6 +25,7 @@ function effectiveDelay(delays: Record<number, number>, arenaId?: number): numbe
 interface Speaker { id: number; name: string; role: string; color: string; has_password?: number; }
 interface Arena { id: number; name: string; description?: string; }
 interface Team { id: number; name: string; description?: string; has_password?: number; }
+interface Contact { id: number; tournament_id?: number; name: string; role?: string; phone?: string; }
 interface Tournament { id: number; name: string; location?: string; start_date?: string; end_date?: string; logo_path?: string; }
 interface ScheduleEntry {
   id: number; date: string; start_time: string; end_time: string;
@@ -1589,6 +1590,7 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
       )}
 
       {/* Dokumente */}
+      {activeTournamentId && <ContactsViewer tournamentId={activeTournamentId} />}
       {activeTournamentId && <DocumentsViewer tournamentId={activeTournamentId} />}
     </div>
   );
@@ -1658,7 +1660,7 @@ function DelayPanel({ tournamentId, date, arenas, delays, onChanged }: {
 
 type AdminMainTab = "zeitplan" | "turnier" | "verwaltung";
 type ZeitplanSub = "entries" | "shifts";
-type TurnierSub = "details" | "organisation" | "phasen" | "dokumente" | "share";
+type TurnierSub = "details" | "organisation" | "phasen" | "kontakte" | "dokumente" | "share";
 type VerwaltungSub = "settings" | "api" | "inquiries" | "admins";
 
 function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () => void; activeTournamentId?: number; session: AppSession | null }) {
@@ -1736,6 +1738,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
           <button className={subBtnCls(turnierSub === "details")} onClick={() => setTurnierSub("details")}>Details & Logo</button>
           <button className={subBtnCls(turnierSub === "organisation")} onClick={() => setTurnierSub("organisation")}>Sprecher · Plätze · Teams</button>
           <button className={subBtnCls(turnierSub === "phasen")} onClick={() => setTurnierSub("phasen")}>Phasen</button>
+          <button className={subBtnCls(turnierSub === "kontakte")} onClick={() => setTurnierSub("kontakte")}>📞 Telefonliste</button>
           <button className={subBtnCls(turnierSub === "dokumente")} onClick={() => setTurnierSub("dokumente")}>📄 Dokumente</button>
           <button className={subBtnCls(turnierSub === "share")} onClick={() => setTurnierSub("share")}>🔗 Share-Link</button>
         </div>
@@ -1778,6 +1781,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
 
       {main === "turnier" && turnierSub === "details" && <TournamentSettingsTab tournamentId={activeTournamentId} onLogoUpdated={onRefresh} />}
       {main === "turnier" && turnierSub === "organisation" && <OrganisationTab speakers={speakers} arenas={arenas} teams={teams} onRefresh={load} />}
+      {main === "turnier" && turnierSub === "kontakte" && <ContactsTab tournamentId={activeTournamentId} />}
       {main === "turnier" && turnierSub === "phasen" && <PhasesTab />}
       {main === "turnier" && turnierSub === "dokumente" && <DocumentsAdminTab tournamentId={activeTournamentId} isSuperAdmin={isSuperAdmin} />}
       {main === "turnier" && turnierSub === "share" && <ShareTab tournamentId={activeTournamentId} />}
@@ -2206,6 +2210,73 @@ function OrganisationTab({ speakers, arenas, teams, onRefresh }: { speakers: Spe
       {sub === "speakers" && <SpeakersTab speakers={speakers} onRefresh={onRefresh} />}
       {sub === "arenas" && <ArenasTab arenas={arenas} onRefresh={onRefresh} />}
       {sub === "teams" && <TeamsTab teams={teams} onRefresh={onRefresh} />}
+    </div>
+  );
+}
+
+// Telefonliste – Admin-Pflege (pro Turnier)
+function ContactsTab({ tournamentId }: { tournamentId?: number }) {
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [edit, setEdit] = useState<Partial<Contact> | null>(null);
+
+  const load = useCallback(async () => {
+    if (!tournamentId) return;
+    const r = await fetch(`/api/contacts?tournament_id=${tournamentId}`);
+    if (r.ok) setContacts(await r.json());
+  }, [tournamentId]);
+  useEffect(() => { load(); }, [load]);
+
+  async function save() {
+    if (!edit?.name?.trim()) return;
+    const method = edit.id ? "PUT" : "POST";
+    await fetch("/api/contacts", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...edit, tournament_id: tournamentId }),
+    });
+    setEdit(null); load();
+  }
+
+  async function del(id: number) {
+    if (!confirm("Kontakt löschen?")) return;
+    await fetch("/api/contacts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    load();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">📞 Telefonliste</h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Sichtbar für alle eingeloggten Nutzer dieses Turniers.</p>
+        </div>
+        <button onClick={() => setEdit({})} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 shrink-0">+ Hinzufügen</button>
+      </div>
+
+      {contacts.length === 0 && <p className="text-sm text-gray-400">Noch keine Kontakte angelegt.</p>}
+
+      {contacts.map(c => (
+        <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-gray-800 dark:text-gray-100 truncate">{c.name}{c.role && <span className="font-normal text-gray-500 dark:text-gray-400"> · {c.role}</span>}</p>
+            {c.phone && <p className="text-xs text-indigo-600 dark:text-indigo-400 font-mono">{c.phone}</p>}
+          </div>
+          <button onClick={() => setEdit({ ...c })} className="text-xs text-blue-600 hover:underline mr-2 shrink-0">Bearbeiten</button>
+          <button onClick={() => del(c.id)} className="text-xs text-red-500 hover:underline shrink-0">Löschen</button>
+        </div>
+      ))}
+
+      {edit !== null && (
+        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
+          <Field label="Name"><input value={edit.name ?? ""} onChange={e => setEdit(v => ({ ...v!, name: e.target.value }))} className={inputClass} placeholder="z.B. Maria Müller" autoFocus /></Field>
+          <Field label="Rolle / Job"><input value={edit.role ?? ""} onChange={e => setEdit(v => ({ ...v!, role: e.target.value }))} className={inputClass} placeholder="z.B. Turnierleitung, Sanitäter, Parkplatz" /></Field>
+          <Field label="Telefonnummer"><input type="tel" value={edit.phone ?? ""} onChange={e => setEdit(v => ({ ...v!, phone: e.target.value }))} className={inputClass} placeholder="z.B. +49 170 1234567" /></Field>
+          <div className="flex gap-2">
+            <button onClick={save} disabled={!edit.name?.trim()} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">Speichern</button>
+            <button onClick={() => setEdit(null)} className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200">Abbrechen</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3063,6 +3134,41 @@ function DocumentsAdminTab({ tournamentId, isSuperAdmin }: { tournamentId?: numb
       )}
 
       <p className="text-xs text-gray-400 text-center">Event-spezifische Dokumente: Eintrag in der Liste anklicken → „📄 PDF hinzufügen"</p>
+    </div>
+  );
+}
+
+// ── Telefonliste: Viewer für alle Nutzer (read-only, mit Anruf-Links) ─────────
+function ContactsViewer({ tournamentId }: { tournamentId: number }) {
+  const [contacts, setContacts] = useState<Contact[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/contacts?tournament_id=${tournamentId}`).then(r => r.ok ? r.json() : []).then(setContacts);
+  }, [tournamentId]);
+
+  if (contacts.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Telefonliste</h3>
+      <div className="space-y-2">
+        {contacts.map(c => (
+          <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-3 p-3">
+            <span className="text-xl shrink-0">📞</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-800 dark:text-gray-100 truncate">
+                {c.name}{c.role && <span className="font-normal text-gray-500 dark:text-gray-400"> · {c.role}</span>}
+              </p>
+            </div>
+            {c.phone && (
+              <a href={`tel:${c.phone.replace(/\s/g, "")}`}
+                className="shrink-0 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition whitespace-nowrap">
+                📲 {c.phone}
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
