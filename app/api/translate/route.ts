@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { translateTexts } from "@/lib/translate";
+import { translateTexts, getDeeplKey } from "@/lib/translate";
 
 // POST { texts: string[], target?: "EN" } -> { translations: string[] }
 export async function POST(req: NextRequest) {
@@ -15,11 +15,14 @@ export async function GET(req: NextRequest) {
   if (new URL(req.url).searchParams.get("debug") !== "1") {
     return NextResponse.json({ ok: true });
   }
-  const key = process.env.DEEPL_API_KEY?.trim();
+  const key = getDeeplKey();
+  // Welche Variablennamen sind überhaupt gesetzt? (nur Namen, keine Werte)
+  const seenVars = ["DEEPL_API_KEY", "DEEPL_AUTH_KEY", "DEEPL_KEY", "DEEPL_TOKEN"].filter(n => !!process.env[n]);
   const info: Record<string, unknown> = {
     hasKey: !!key,
     keyLength: key?.length ?? 0,
     keyKind: key ? (key.endsWith(":fx") ? "free" : "pro") : null,
+    seenVars,
   };
   if (key) {
     const endpoint = key.endsWith(":fx")

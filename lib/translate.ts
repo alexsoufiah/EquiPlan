@@ -1,5 +1,11 @@
 import { getDb } from "./db";
 
+// Key aus mehreren möglichen Variablennamen lesen (tolerant gegenüber Tippfehlern)
+export function getDeeplKey(): string | undefined {
+  const k = process.env.DEEPL_API_KEY || process.env.DEEPL_AUTH_KEY || process.env.DEEPL_KEY || process.env.DEEPL_TOKEN;
+  return k?.trim() || undefined;
+}
+
 // DeepL-Übersetzung mit DB-Cache. Gibt für jede Eingabe die Übersetzung zurück
 // (oder den Originaltext, falls kein Key gesetzt ist / DeepL fehlschlägt).
 export async function translateTexts(texts: string[], target = "EN"): Promise<string[]> {
@@ -17,14 +23,14 @@ export async function translateTexts(texts: string[], target = "EN"): Promise<st
     else missing.push({ i, text: trimmed });
   });
 
-  const key = process.env.DEEPL_API_KEY;
+  const key = getDeeplKey();
   if (missing.length === 0 || !key) {
     for (const m of missing) result[m.i] = m.text; // ohne Key: Original
     return result;
   }
 
   // DeepL Free-Keys enden auf ":fx" und nutzen die api-free-Domain
-  const endpoint = key.trim().endsWith(":fx")
+  const endpoint = key.endsWith(":fx")
     ? "https://api-free.deepl.com/v2/translate"
     : "https://api.deepl.com/v2/translate";
 
@@ -43,7 +49,7 @@ export async function translateTexts(texts: string[], target = "EN"): Promise<st
       const res = await fetch(endpoint, {
         method: "POST",
         headers: {
-          Authorization: `DeepL-Auth-Key ${key.trim()}`,
+          Authorization: `DeepL-Auth-Key ${key}`,
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: params,
