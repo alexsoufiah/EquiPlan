@@ -139,6 +139,15 @@ function initSchema(db: Database.Database) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (tournament_id, date, arena_id)
     );
+
+    -- Übersetzungs-Cache (DeepL), damit jede Phrase nur einmal übersetzt wird
+    CREATE TABLE IF NOT EXISTS translations (
+      source TEXT NOT NULL,
+      target TEXT NOT NULL,
+      translated TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (source, target)
+    );
   `);
 
   // Push-Subscriptions: Ziel-Infos für gezielte Benachrichtigungen

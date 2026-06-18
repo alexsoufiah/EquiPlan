@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { LogOut, Settings, Bell, BellOff, RefreshCw, ChevronLeft, ChevronRight, Trophy, ChevronDown, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/lib/theme";
+import { useLang } from "@/lib/i18n";
 
 const PhaseOverridesContext = createContext<{ overrides: Record<string, string>; setOverrides: (v: Record<string, string>) => void }>({ overrides: {}, setOverrides: () => {} });
 
@@ -138,7 +139,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
             <div className="space-y-3">
               <img src="/logo.png" alt="EquiPlan" className="w-24 h-24 mx-auto object-contain drop-shadow-2xl rounded-2xl" />
               <div>
-                <h1 className="text-5xl font-bold text-white tracking-tight">
+                <h1 className="text-5xl font-bold text-white tracking-tight" data-no-translate>
                   Equi<span className="text-violet-400">Plan</span>
                 </h1>
                 <p className="text-indigo-200/80 mt-2 text-base font-light tracking-wide">
@@ -180,7 +181,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-7">
               <div className="text-center mb-5">
                 <img src="/logo.png" alt="EquiPlan" className="w-12 h-12 mx-auto mb-3 object-contain" />
-                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100" data-no-translate>
                   <span className="text-indigo-900 dark:text-indigo-400">Equi</span><span className="text-violet-600">Plan</span>
                 </h2>
               </div>
@@ -833,6 +834,7 @@ type AppView = "tournament-select" | "schedule" | "admin";
 
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme();
+  const { lang, setLang } = useLang();
   const [session, setSession] = useState<AppSession | null>(null);
   const [checking, setChecking] = useState(true);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -1013,7 +1015,7 @@ export default function App() {
               : <img src="/logo.png" alt="EquiPlan" className="w-9 h-9 object-contain rounded-lg bg-white/10 p-0.5 shrink-0" />
             }
             <div className="min-w-0">
-              <h1 className="font-bold text-lg leading-tight tracking-tight">
+              <h1 className="font-bold text-lg leading-tight tracking-tight" data-no-translate>
                 <span className="text-white">Equi</span><span className="text-violet-300">Plan</span>
               </h1>
               <button onClick={() => !session?.adminTournamentId && setView("tournament-select")} className={`flex items-center gap-1 text-xs transition truncate max-w-[200px] ${session?.adminTournamentId ? "text-indigo-300 cursor-default" : "text-indigo-200 hover:text-white"}`}>
@@ -1048,6 +1050,11 @@ export default function App() {
                 <Settings size={18} />
               </button>
             )}
+            <button onClick={() => setLang(lang === "de" ? "en" : "de")} data-no-translate
+              className="px-2 py-2 rounded-lg hover:bg-indigo-700 transition text-xs font-bold tracking-wide"
+              title={lang === "de" ? "Switch to English" : "Auf Deutsch umschalten"} aria-label="Language">
+              {lang === "de" ? "EN" : "DE"}
+            </button>
             <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-indigo-700 transition" title={theme === "dark" ? "Hellmodus" : "Dunkelmodus"} aria-label={theme === "dark" ? "Hellmodus" : "Dunkelmodus"}>
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
@@ -1099,7 +1106,7 @@ function TournamentSelect({ tournaments, session, onSelect, onLogout, onCreated 
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img src="/logo.png" alt="EquiPlan" className="w-20 h-20 mx-auto mb-3 object-contain" />
-          <h1 className="text-3xl font-bold text-white"><span>Equi</span><span className="text-violet-300">Plan</span></h1>
+          <h1 className="text-3xl font-bold text-white" data-no-translate><span>Equi</span><span className="text-violet-300">Plan</span></h1>
           <p className="text-indigo-200 text-sm mt-1">
             {session.role === "team" ? `Eingeloggt als: ${session.teamName}` : session.role === "admin" ? "Administrator" : "Viewer"}
           </p>

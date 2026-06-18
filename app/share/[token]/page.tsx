@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { use } from "react";
 import { Trophy, MapPin, Clock, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 interface Arena { id: number; name: string; }
 interface Team { id: number; name: string; }
@@ -229,6 +230,7 @@ function ShareTimeline({ entries, selectedDate }: { entries: Entry[]; selectedDa
 // ── Hauptseite ────────────────────────────────────────────────────────────────
 export default function SharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
+  const { lang, setLang } = useLang();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [arenas, setArenas] = useState<Arena[]>([]);
   const [dates, setDates] = useState<string[]>([]);
@@ -340,7 +342,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
           <img src="/logo.png" alt="EquiPlan" className="w-8 h-8 object-contain opacity-90" />
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-base leading-tight truncate">
-              <span className="text-white">Equi</span><span className="text-violet-300">Plan</span>
+              <span data-no-translate><span className="text-white">Equi</span><span className="text-violet-300">Plan</span></span>
               <span className="text-gray-400 font-normal mx-2">·</span>
               <span className="text-white">{tournament.name}</span>
             </h1>
@@ -354,6 +356,11 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
               )}
             </div>
           </div>
+          <button onClick={() => setLang(lang === "de" ? "en" : "de")} data-no-translate
+            className="px-2 py-1 rounded-lg text-xs font-bold tracking-wide text-indigo-100 hover:bg-white/10 transition shrink-0"
+            title={lang === "de" ? "Switch to English" : "Auf Deutsch umschalten"}>
+            {lang === "de" ? "EN" : "DE"}
+          </button>
           <LiveClock />
         </div>
       </header>
