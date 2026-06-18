@@ -246,6 +246,19 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const [showInfo, setShowInfo] = useState(false);
   const currentRef = useRef<HTMLDivElement>(null);
 
+  // Globale Body-Sperre (für die fixierte Haupt-App) hier aufheben, damit die
+  // Share-Seite normal scrollt – die Header bleiben per sticky stehen.
+  useEffect(() => {
+    const html = document.documentElement, body = document.body;
+    const prev = [html.style.cssText, body.style.cssText];
+    for (const el of [html, body]) {
+      el.style.overflow = "auto";
+      el.style.position = "static";
+      el.style.height = "auto";
+    }
+    return () => { html.style.cssText = prev[0]; body.style.cssText = prev[1]; };
+  }, []);
+
   function onHelperSignedUp(entryId: number) {
     setEntries(prev => prev.map(e =>
       e.id === entryId ? { ...e, helpers_signed_up: (e.helpers_signed_up ?? 0) + 1 } : e
