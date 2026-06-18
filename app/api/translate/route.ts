@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { translateTexts, getDeeplKey } from "@/lib/translate";
+import { translateTexts } from "@/lib/translate";
 
 // POST { texts: string[], target?: "EN" } -> { translations: string[] }
 export async function POST(req: NextRequest) {
@@ -8,46 +8,4 @@ export async function POST(req: NextRequest) {
   const clean = texts.map(t => String(t ?? "")).slice(0, 200);
   const translations = await translateTexts(clean, target || "EN");
   return NextResponse.json({ translations });
-}
-
-// GET /api/translate?debug=1 -> sichere Diagnose (zeigt NICHT den Key)
-export async function GET(req: NextRequest) {
-  if (new URL(req.url).searchParams.get("debug") !== "1") {
-    return NextResponse.json({ ok: true });
-  }
-  const key = getDeeplKey();
-  // Welche Variablennamen sind überhaupt gesetzt? (nur Namen, keine Werte)
-  const seenVars = ["DEEPL_API_KEY", "DEEPL_AUTH_KEY", "DEEPL_KEY", "DEEPL_TOKEN"].filter(n => !!process.env[n]);
-  // Alle Variablen-Namen, die nach DeepL/Übersetzung aussehen (nur Namen!)
-  const matchingVars = Object.keys(process.env).filter(n => /deepl|translat|deepI/i.test(n));
-  const info: Record<string, unknown> = {
-    hasKey: !!key,
-    keyLength: key?.length ?? 0,
-    keyKind: key ? (key.endsWith(":fx") ? "free" : "pro") : null,
-    seenVars,
-    matchingVars,
-    totalEnvCount: Object.keys(process.env).length,
-  };
-  if (key) {
-    const endpoint = key.endsWith(":fx")
-      ? "https://api-free.deepl.com/v2/translate"
-      : "https://api.deepl.com/v2/translate";
-    info.endpoint = endpoint;
-    try {
-      const params = new URLSearchParams();
-      params.set("target_lang", "EN");
-      params.append("text", "Hallo Welt");
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { Authorization: `DeepL-Auth-Key ${key}`, "Content-Type": "application/x-www-form-urlencoded" },
-        body: params,
-      });
-      info.deeplStatus = res.status;
-      const body = await res.text();
-      info.deeplBody = body.slice(0, 300);
-    } catch (e) {
-      info.fetchError = String(e);
-    }
-  }
-  return NextResponse.json(info);
 }
