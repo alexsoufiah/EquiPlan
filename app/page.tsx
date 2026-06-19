@@ -564,7 +564,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
             ))}
             {entry.speaker_name && (
               <span className="rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
-                🎙 {entry.speaker_name} ({entry.speaker_role})
+                🎙 {entry.speaker_name}{entry.speaker_role ? ` (${entry.speaker_role})` : ""}
               </span>
             )}
           </div>
@@ -589,7 +589,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
             {entry.teams?.map(t => <span key={t.id} className="bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">👥 {t.name}</span>)}
             {entry.speaker_name && (
               <span className="rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
-                🎙 {entry.speaker_name} ({entry.speaker_role})
+                🎙 {entry.speaker_name}{entry.speaker_role ? ` (${entry.speaker_role})` : ""}
               </span>
             )}
           </div>
@@ -1876,7 +1876,7 @@ function EntryForm({ entry, speakers, arenas, teams, onSave, onClose }: {
           <Field label="Sprecher">
             <select value={form.speaker_id ?? ""} onChange={e => set("speaker_id", e.target.value ? Number(e.target.value) : undefined)} className={inputClass}>
               <option value="">– kein Sprecher –</option>
-              {speakers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
+              {speakers.map(s => <option key={s.id} value={s.id}>{s.name}{s.role ? ` (${s.role})` : ""}</option>)}
             </select>
           </Field>
           <Field label="Notizen">
