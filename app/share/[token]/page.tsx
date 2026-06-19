@@ -257,19 +257,6 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const [showInfo, setShowInfo] = useState(false);
   const currentRef = useRef<HTMLDivElement>(null);
 
-  // Globale Body-Sperre (für die fixierte Haupt-App) hier aufheben, damit die
-  // Share-Seite normal scrollt – die Header bleiben per sticky stehen.
-  useEffect(() => {
-    const html = document.documentElement, body = document.body;
-    const prev = [html.style.cssText, body.style.cssText];
-    for (const el of [html, body]) {
-      el.style.overflow = "auto";
-      el.style.position = "static";
-      el.style.height = "auto";
-    }
-    return () => { html.style.cssText = prev[0]; body.style.cssText = prev[1]; };
-  }, []);
-
   function onHelperSignedUp(entryId: number) {
     setEntries(prev => prev.map(e =>
       e.id === entryId ? { ...e, helpers_signed_up: (e.helpers_signed_up ?? 0) + 1 } : e
@@ -362,16 +349,14 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const nextIdx = entries.findIndex(e => !isDone(e) && !isRunning(e));
   const dateIdx = dates.indexOf(selectedDate);
 
-  // Sticky-Offset berechnen
   const hasDates = dates.length > 1;
   const hasArenas = arenas.length > 1;
-  const arenaTop = hasDates ? 108 : 64;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+    <div className="fixed inset-0 bg-gray-950 text-white flex flex-col overflow-hidden">
 
-      {/* ── Header ── */}
-      <header className="bg-gradient-to-r from-indigo-900 via-violet-900 to-indigo-900 border-b border-white/15 sticky top-0 z-30 backdrop-blur">
+      {/* ── Header (immer oben fix) ── */}
+      <header className="bg-gradient-to-r from-indigo-900 via-violet-900 to-indigo-900 border-b border-white/15 shrink-0 z-30 backdrop-blur safe-top">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
           <img src="/logo.png" alt="EquiPlan" className="w-8 h-8 object-contain opacity-90" />
           <div className="flex-1 min-w-0">
@@ -406,9 +391,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
         </div>
       </header>
 
-      {/* ── Datum-Auswahl ── */}
+      {/* ── Datum-Auswahl (fix unter dem Header) ── */}
       {hasDates && (
-        <div className="bg-gray-900/90 border-b border-white/10 sticky z-20" style={{ top: 64 }}>
+        <div className="bg-gray-900/90 border-b border-white/10 shrink-0 z-20">
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2">
             <button onClick={() => dateIdx > 0 && setSelectedDate(dates[dateIdx - 1])} disabled={dateIdx <= 0}
               className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-30 transition">
@@ -434,9 +419,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
         </div>
       )}
 
-      {/* ── Platz-Filter + Ansicht-Toggle ── */}
+      {/* ── Platz-Filter + Ansicht-Toggle (fix) ── */}
       {hasArenas && (
-        <div className="bg-gray-900/80 border-b border-white/10 sticky z-20" style={{ top: arenaTop }}>
+        <div className="bg-gray-900/80 border-b border-white/10 shrink-0 z-20">
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
             <div className="flex gap-1.5 overflow-x-auto hide-scrollbar flex-1">
               <button onClick={() => setSelectedArena(null)}
@@ -473,9 +458,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
         </div>
       )}
 
-      {/* ── Inhalt ── */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-4 py-4 pb-20">
+      {/* ── Inhalt (scrollt; touch-fähig auf großen Displays) ── */}
+      <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehavior: "contain" }}>
+        <div className="max-w-6xl mx-auto px-4 py-4 pb-24">
 
           {entries.length === 0 && (
             <div className="text-center py-20 text-gray-500">
