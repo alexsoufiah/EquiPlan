@@ -616,9 +616,10 @@ function StaffContactsModal({ contacts, onClose }: { contacts: { id: number; nam
         <div className="p-4 space-y-2">
           {contacts.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Keine Kontakte hinterlegt.</p>}
           {contacts.map(c => (
-            <div key={c.id} className="bg-white/5 border border-white/10 rounded-xl flex items-center gap-3 p-3">
+            <div key={c.id} className="bg-white/5 border border-white/10 rounded-xl flex items-start gap-3 p-3">
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-white truncate">{c.name}{c.role && <span className="font-normal text-gray-400"> · {c.role}</span>}</p>
+                <p className="font-medium text-white break-words">{c.name}</p>
+                {c.role && <p className="text-sm text-gray-400 break-words">{c.role}</p>}
               </div>
               {c.phone && (
                 <a href={`tel:${c.phone.replace(/\s/g, "")}`}

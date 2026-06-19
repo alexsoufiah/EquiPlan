@@ -2259,10 +2259,10 @@ function ContactsTab({ tournamentId }: { tournamentId?: number }) {
       {contacts.length === 0 && <p className="text-sm text-gray-400">Noch keine Kontakte angelegt.</p>}
 
       {contacts.map(c => (
-        <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3">
+        <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-gray-800 dark:text-gray-100 truncate">{c.name}{c.role && <span className="font-normal text-gray-500 dark:text-gray-400"> · {c.role}</span>}</p>
-            {c.phone && <p className="text-xs text-indigo-600 dark:text-indigo-400 font-mono">{c.phone}</p>}
+            <p className="font-medium text-gray-800 dark:text-gray-100 break-words">{c.name}{c.role && <span className="font-normal text-gray-500 dark:text-gray-400"> · {c.role}</span>}</p>
+            {c.phone && <p className="text-xs text-indigo-600 dark:text-indigo-400 font-mono break-words">{c.phone}</p>}
           </div>
           <button onClick={() => setEdit({ ...c })} className="text-xs text-blue-600 hover:underline mr-2 shrink-0">Bearbeiten</button>
           <button onClick={() => del(c.id)} className="text-xs text-red-500 hover:underline shrink-0">Löschen</button>
@@ -3242,12 +3242,11 @@ function ContactsViewer({ tournamentId, embedded }: { tournamentId: number; embe
       {!embedded && <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Telefonliste</h3>}
       <div className="space-y-2">
         {contacts.map(c => (
-          <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-3 p-3">
+          <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-start gap-3 p-3">
             <span className="text-xl shrink-0">📞</span>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-800 dark:text-gray-100 truncate">
-                {c.name}{c.role && <span className="font-normal text-gray-500 dark:text-gray-400"> · {c.role}</span>}
-              </p>
+              <p className="font-medium text-gray-800 dark:text-gray-100 break-words">{c.name}</p>
+              {c.role && <p className="text-sm text-gray-500 dark:text-gray-400 break-words">{c.role}</p>}
             </div>
             {c.phone && (
               <a href={`tel:${c.phone.replace(/\s/g, "")}`}
