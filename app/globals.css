@@ -32,3 +32,16 @@ html, body {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* Barrierefreiheit: Bewegung reduzieren – Endzustände (Deckkraft/Farbe) bleiben,
+   nur die Bewegung/Schleifen werden entfernt. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

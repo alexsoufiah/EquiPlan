@@ -62,6 +62,11 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Scroll-Verhalten je nach Bewegungs-Präferenz (kein Smooth-Scroll bei reduce)
+function scrollBehavior(): ScrollBehavior {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
 async function registerPush() {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
   const reg = await navigator.serviceWorker.register("/sw.js");
@@ -214,7 +219,7 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
 
       <style>{`
         @keyframes fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fade-in 0.4s ease both; }
+        .animate-fade-in { animation: fade-in 0.3s cubic-bezier(0.23, 1, 0.32, 1) both; }
       `}</style>
     </div>
   );
@@ -308,7 +313,7 @@ function OnboardingOverlay({ session, onDone }: { session: AppSession; onDone: (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
         {/* Progress bar */}
         <div className="h-1 bg-gray-100 dark:bg-gray-700">
-          <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
+          <div className="h-full w-full bg-indigo-600 origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]" style={{ transform: `scaleX(${(step + 1) / steps.length})` }} />
         </div>
 
         <div className="p-6">
@@ -342,7 +347,7 @@ function OnboardingOverlay({ session, onDone }: { session: AppSession; onDone: (
         {/* Step dots */}
         <div className="pb-4 flex justify-center gap-1.5">
           {steps.map((_, i) => (
-            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === step ? "bg-indigo-600 w-4" : "bg-gray-300 dark:bg-gray-600"}`} />
+            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-[width,background-color] duration-300 ease-out ${i === step ? "bg-indigo-600 w-4" : "bg-gray-300 dark:bg-gray-600"}`} />
           ))}
         </div>
       </div>
@@ -1458,7 +1463,7 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
     return null;
   })();
   useEffect(() => {
-    if (liveRef.current) liveRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (liveRef.current) liveRef.current.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
   }, [liveEntryId, viewMode]);
 
   const myTeamId = session?.teamId;

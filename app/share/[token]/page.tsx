@@ -58,6 +58,9 @@ function toMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
 }
+function scrollBehavior(): ScrollBehavior {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
 function addMinutesToTime(hhmm: string, min: number): string {
   const total = toMinutes(hhmm) + min;
   const wrapped = ((total % 1440) + 1440) % 1440;
@@ -333,7 +336,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   }, [load]);
 
   useEffect(() => {
-    if (currentRef.current) currentRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (currentRef.current) currentRef.current.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
   }, [entries]);
 
   if (error) return (
@@ -414,7 +417,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
             <div className="flex gap-1.5 overflow-x-auto flex-1 hide-scrollbar">
               {dates.map(d => (
                 <button key={d} onClick={() => setSelectedDate(d)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors duration-150 ${
                     d === selectedDate
                       ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/50"
                       : "bg-white/8 text-gray-300 hover:bg-white/15 hover:text-white border border-white/10"
@@ -437,7 +440,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
           <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
             <div className="flex gap-1.5 overflow-x-auto hide-scrollbar flex-1">
               <button onClick={() => setSelectedArena(null)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-150 ${
                   selectedArena === null
                     ? "bg-violet-600 text-white shadow-lg shadow-violet-900/50"
                     : "bg-white/8 text-gray-300 hover:bg-white/15 hover:text-white border border-white/10"
@@ -446,7 +449,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
               </button>
               {arenas.map(a => (
                 <button key={a.id} onClick={() => setSelectedArena(a.id === selectedArena ? null : a.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-150 ${
                     selectedArena === a.id
                       ? "bg-violet-600 text-white shadow-lg shadow-violet-900/50"
                       : "bg-white/8 text-gray-300 hover:bg-white/15 hover:text-white border border-white/10"
@@ -500,7 +503,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                     key={e.id}
                     ref={isRef ? currentRef : undefined}
                     className={`
-                      rounded-xl border p-4 transition-all duration-500
+                      rounded-xl border p-4 transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]
                       ${visibleIds.has(e.id) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}
                       ${running
                         ? "border-violet-400 bg-violet-800 shadow-lg shadow-violet-900/50 ring-1 ring-violet-400/60"
@@ -598,8 +601,8 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
       {/* ── Scroll-zu-aktuell FAB ── */}
       {viewMode === "list" && (currentIdx >= 0 || nextIdx >= 0) && (
         <button
-          onClick={() => currentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
-          className="fixed bottom-6 right-6 bg-violet-600 hover:bg-violet-500 text-white rounded-full px-4 py-2.5 shadow-lg shadow-violet-900/60 text-sm font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95 border border-violet-400/40">
+          onClick={() => currentRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "center" })}
+          className="fixed bottom-6 right-6 bg-violet-600 hover:bg-violet-500 text-white rounded-full px-4 py-2.5 shadow-lg shadow-violet-900/60 text-sm font-medium flex items-center gap-2 transition-transform duration-150 ease-out hover:scale-105 active:scale-95 border border-violet-400/40">
           <Clock size={14} />
           {currentIdx >= 0 ? "Aktuell" : "Nächstes"}
         </button>
