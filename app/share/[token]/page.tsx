@@ -80,7 +80,7 @@ const PX_PER_HOUR = 96;
 const PX_PER_MIN = PX_PER_HOUR / 60;
 
 // ── Timeline-Komponente (dunkel) ──────────────────────────────────────────────
-function ShareTimeline({ entries, selectedDate }: { entries: Entry[]; selectedDate: string }) {
+function ShareTimeline({ entries, selectedDate, customPhases = {} }: { entries: Entry[]; selectedDate: string; customPhases?: Record<string, { label: string; color: string }> }) {
   const [nowTs, setNowTs] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNowTs(new Date()), 60_000);
@@ -168,13 +168,14 @@ function ShareTimeline({ entries, selectedDate }: { entries: Entry[]; selectedDa
                   const done = isDone(entry);
                   const running = isRunning(entry);
                   const tl = PHASE_TL[entry.phase] ?? PHASE_TL.pause;
+                  const cust = customPhases[entry.phase];
 
                   let cls = `absolute left-1 right-1 rounded-lg border-l-4 px-1.5 py-1 overflow-hidden z-10 shadow-sm ${tl.bg} ${tl.border} ${tl.text}`;
                   if (done) cls += " opacity-35";
                   if (running) cls += " ring-2 ring-violet-400 shadow-[0_0_14px_rgba(167,139,250,0.6)]";
 
                   return (
-                    <div key={entry.id} className={cls} style={{ top, height }}
+                    <div key={entry.id} className={cls} style={{ top, height, ...(cust ? { borderLeftColor: cust.color, backgroundColor: cust.color + "33" } : {}) }}
                       title={`${entry.pruefungs_id ? entry.pruefungs_id + " · " : ""}${entry.title}\n${entry.start_time}–${entry.end_time}${entry.teams?.length ? "\n" + entry.teams.map(t => t.name).join(", ") : ""}`}>
                       {running && (
                         <div className="absolute top-0.5 right-0.5">
@@ -217,6 +218,12 @@ function ShareTimeline({ entries, selectedDate }: { entries: Entry[]; selectedDa
             <span className="text-gray-300">{v.label}</span>
           </span>
         ))}
+        {Object.entries(customPhases).map(([k, v]) => (
+          <span key={k} className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: v.color }} />
+            <span className="text-gray-300">{v.label}</span>
+          </span>
+        ))}
         {showNowLine && (
           <span className="flex items-center gap-1.5 text-red-400 font-semibold">
             <span className="w-2.5 h-0.5 bg-red-400 inline-block rounded" /> Jetzt
@@ -243,6 +250,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const [helperEntry, setHelperEntry] = useState<Entry | null>(null);
   const [internal, setInternal] = useState(false);
   const [contacts, setContacts] = useState<{ id: number; name: string; role?: string; phone?: string }[]>([]);
+  const [customPhases, setCustomPhases] = useState<Record<string, { label: string; color: string }>>({});
   const [showInfo, setShowInfo] = useState(false);
   const currentRef = useRef<HTMLDivElement>(null);
 
@@ -288,6 +296,11 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     const adjusted = applyDelays(data.entries as Entry[], data.delays ?? []);
     setInternal(!!data.internal);
     setContacts(Array.isArray(data.contacts) ? data.contacts : []);
+    if (Array.isArray(data.customPhases)) {
+      const m: Record<string, { label: string; color: string }> = {};
+      for (const p of data.customPhases) m[p.key] = { label: p.label, color: p.color };
+      setCustomPhases(m);
+    }
     setVisibleIds(new Set());
     setTimeout(() => setVisibleIds(new Set(adjusted.map(e => e.id))), 50);
     setEntries(adjusted);
@@ -469,7 +482,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
           )}
 
           {entries.length > 0 && viewMode === "timeline" && (
-            <ShareTimeline entries={entries} selectedDate={selectedDate} />
+            <ShareTimeline entries={entries} selectedDate={selectedDate} customPhases={customPhases} />
           )}
 
           {entries.length > 0 && viewMode === "list" && (
@@ -479,6 +492,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                 const done = isDone(e);
                 const isNext = !running && !done && i === nextIdx;
                 const phase = PHASE_LIST[e.phase] ?? PHASE_LIST.pause;
+                const cust = customPhases[e.phase];
                 const isRef = running || (currentIdx === -1 && isNext);
 
                 return (
@@ -521,9 +535,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                               Nächstes
                             </span>
                           )}
-                          <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${phase.text} bg-black/25 border border-white/10`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${phase.dot}`} />
-                            {phase.label}
+                          <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-black/25 border border-white/10 ${cust ? "" : phase.text}`} style={cust ? { color: cust.color } : undefined}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${cust ? "" : phase.dot}`} style={cust ? { backgroundColor: cust.color } : undefined} />
+                            {cust?.label ?? phase.label}
                           </span>
                         </div>
 

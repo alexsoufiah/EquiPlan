@@ -6,6 +6,9 @@ import { useLang } from "@/lib/i18n";
 
 const PhaseOverridesContext = createContext<{ overrides: Record<string, string>; setOverrides: (v: Record<string, string>) => void }>({ overrides: {}, setOverrides: () => {} });
 
+// Eigene Phasen: key -> { label, color (hex) } – damit Karten Label & Farbe zeigen
+const CustomPhasesContext = createContext<Record<string, { label: string; color: string }>>({});
+
 // Verspätungen: arenaId -> Minuten (Schlüssel 0 = gilt für den ganzen Tag)
 const DelayContext = createContext<Record<number, number>>({});
 
@@ -497,9 +500,17 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
   const isMyTeam = myTeamId != null && entry.teams?.some(t => t.id === myTeamId);
   const phase = PHASE_CONFIG[entry.phase] ?? PHASE_CONFIG.pause;
   const { overrides } = useContext(PhaseOverridesContext);
-  const overrideColor = overrides[entry.phase];
+  const customPhases = useContext(CustomPhasesContext);
+  const custom = customPhases[entry.phase];           // eigene Phase (Label + Farbe)
+  const label = custom?.label ?? phase.label;
+  const overrideColor = custom?.color ?? overrides[entry.phase];
   const txtColor = overrideColor ? readableTextColor(overrideColor) : undefined;
   const liveRing = live ? "ring-2 ring-red-400 dark:ring-red-500/70 shadow-md" : "";
+
+  // Phasen-Badge (eigene Phase: Farbe per inline-Style, sonst Tailwind-Klassen)
+  const phaseBadge = (extra = "") => custom
+    ? <span className={`text-xs px-2 py-0.5 rounded-full font-medium bg-white dark:bg-gray-700 border ${extra}`} style={{ color: custom.color, borderColor: custom.color }}>{label}</span>
+    : <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border} ${extra}`}>{label}</span>;
 
   // Kennzeichnung der Verspätung (einzeln = orange „nur dieser", sonst rot)
   const delayBadge = delayMin > 0 ? (
@@ -530,7 +541,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
                 {entry.title}
               </span>
               <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
-                {phase.label} · Abgeschlossen
+                {label} · Abgeschlossen
               </span>
             </div>
             {timeDisplay("text-sm font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap")}
@@ -548,7 +559,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
                 {entry.pruefungs_id && <span className="text-violet-400 dark:text-violet-500 font-normal mr-1">{entry.pruefungs_id}</span>}
                 {entry.title}
               </span>
-              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border}`}>{phase.label}</span>
+              {phaseBadge("ml-2")}
               <span className="ml-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-violet-600 text-white">Ihr Einsatz</span>
               {live && <LiveBadge />}
               {delayBadge}
@@ -578,7 +589,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
                 {entry.pruefungs_id && <span className="text-gray-400 dark:text-gray-500 font-normal mr-1" style={txtColor ? { color: txtColor, opacity: 0.7 } : undefined}>{entry.pruefungs_id}</span>}
                 {entry.title}
               </span>
-              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border}`}>{phase.label}</span>
+              {phaseBadge("ml-2")}
               {live && <LiveBadge />}
               {delayBadge}
             </div>
@@ -644,6 +655,9 @@ function PdfFullscreen({ doc, onClose }: { doc: DocMeta; onClose: () => void }) 
 
 function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; session: AppSession | null; onClose: () => void }) {
   const phase = PHASE_CONFIG[entry.phase] ?? PHASE_CONFIG.pause;
+  const customPhases = useContext(CustomPhasesContext);
+  const custom = customPhases[entry.phase];
+  const phaseLabel = custom?.label ?? phase.label;
   const [docs, setDocs] = useState<DocMeta[]>([]);
   const [fullscreenDoc, setFullscreenDoc] = useState<DocMeta | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -712,7 +726,9 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
         <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${phase.bg} dark:bg-[#1c1c2e]`}>
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border} mr-2`}>{phase.label}</span>
+              {custom
+                ? <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-white dark:bg-gray-700 border mr-2" style={{ color: custom.color, borderColor: custom.color }}>{phaseLabel}</span>
+                : <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${phase.color} bg-white dark:bg-gray-700 border ${phase.border} mr-2`}>{phaseLabel}</span>}
               <h2 className="font-bold text-gray-900 dark:text-gray-100 text-lg mt-1">
                 {entry.pruefungs_id && <span className="text-gray-400 font-normal mr-1 text-sm">{entry.pruefungs_id}</span>}
                 {entry.title}
@@ -844,10 +860,18 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(today());
   const [pushEnabled, setPushEnabled] = useState(false);
   const [phaseOverrides, setPhaseOverrides] = useState<Record<string, string>>({});
+  const [customPhasesMap, setCustomPhasesMap] = useState<Record<string, { label: string; color: string }>>({});
   const [delays, setDelays] = useState<Record<number, number>>({});
 
   useEffect(() => {
-    fetch("/api/phases").then(r => r.json()).then(d => { if (d?.overrides) setPhaseOverrides(d.overrides); }).catch(() => {});
+    fetch("/api/phases").then(r => r.json()).then(d => {
+      if (d?.overrides) setPhaseOverrides(d.overrides);
+      if (Array.isArray(d?.custom)) {
+        const m: Record<string, { label: string; color: string }> = {};
+        for (const p of d.custom) m[p.key] = { label: p.label, color: p.color };
+        setCustomPhasesMap(m);
+      }
+    }).catch(() => {});
   }, []);
 
   // Service Worker registrieren (Offline-Cache + Push)
@@ -1004,6 +1028,7 @@ export default function App() {
 
   return (
     <PhaseOverridesContext.Provider value={{ overrides: phaseOverrides, setOverrides: setPhaseOverrides }}>
+    <CustomPhasesContext.Provider value={customPhasesMap}>
     <DelayContext.Provider value={delays}>
     <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-950 overflow-hidden">
       {showOnboarding && session && (
@@ -1089,6 +1114,7 @@ export default function App() {
       </main>
     </div>
     </DelayContext.Provider>
+    </CustomPhasesContext.Provider>
     </PhaseOverridesContext.Provider>
   );
 }

@@ -79,6 +79,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     ? db.prepare("SELECT id, name, role, phone FROM contacts WHERE tournament_id = ? ORDER BY sort_order, name").all(tournament.id as number)
     : [];
 
+  // Eigene Phasen (Label + Farbe), damit die Anzeigetafel sie korrekt darstellt
+  const customPhases = db.prepare("SELECT key, label, color FROM custom_phases").all();
+
   return NextResponse.json({
     tournament: { id: tournament.id, name: tournament.name, location: tournament.location, start_date: tournament.start_date, end_date: tournament.end_date },
     arenas,
@@ -86,6 +89,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     delays,
     internal: isStaff,
     contacts,
+    customPhases,
     entries: attachTeams(db, entries as Record<string, unknown>[]),
   });
 }
