@@ -1704,7 +1704,12 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
   async function saveEntry(data: Partial<ScheduleEntry> & { team_ids?: number[] }) {
     const method = data.id ? "PUT" : "POST";
     const url = data.id ? `/api/schedule/${data.id}` : "/api/schedule";
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(`Speichern fehlgeschlagen: ${d.error || res.statusText}`);
+      return;
+    }
     setShowForm(false); setEditEntry(null);
     load(); onRefresh();
   }

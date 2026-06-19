@@ -63,7 +63,7 @@ function initSchema(db: Database.Database) {
       start_time TEXT NOT NULL,
       end_time TEXT NOT NULL,
       title TEXT NOT NULL,
-      phase TEXT NOT NULL CHECK(phase IN ('aufbau','wettkampf','abbau','pause')),
+      phase TEXT NOT NULL,
       pruefungs_id TEXT,
       arena_id INTEGER REFERENCES arenas(id) ON DELETE SET NULL,
       team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
@@ -186,6 +186,24 @@ function initSchema(db: Database.Database) {
   if (!entryCols2.includes("helpers_needed")) db.exec("ALTER TABLE schedule_entries ADD COLUMN helpers_needed INTEGER NOT NULL DEFAULT 0");
   if (!entryCols2.includes("helpers_task")) db.exec("ALTER TABLE schedule_entries ADD COLUMN helpers_task TEXT");
   if (!entryCols2.includes("delay_minutes")) db.exec("ALTER TABLE schedule_entries ADD COLUMN delay_minutes INTEGER NOT NULL DEFAULT 0");
+
+  // Alte CHECK-Beschränkung auf "phase" entfernen (ließ nur die 4 alten Phasen zu,
+  // blockierte Siegerehrung + eigene Phasen). SQLite kann CHECK nicht per ALTER
+  // entfernen -> Tabelle einmalig ohne die Beschränkung neu aufbauen.
+  const seTableSql = (db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='schedule_entries'").get() as { sql: string } | undefined)?.sql;
+  if (seTableSql && /CHECK\s*\(\s*phase/i.test(seTableSql)) {
+    const colNames = (db.prepare("PRAGMA table_info(schedule_entries)").all() as { name: string }[]).map(c => c.name).join(", ");
+    let newSql = seTableSql
+      .replace(/CHECK\s*\(\s*phase[^)]*\)\s*\)/i, "")               // CHECK(phase IN (...)) entfernen
+      .replace(/CREATE TABLE\s+(IF NOT EXISTS\s+)?"?schedule_entries"?/i, 'CREATE TABLE "schedule_entries_rebuild"');
+    const rebuild = db.transaction(() => {
+      db.exec(newSql);
+      db.exec(`INSERT INTO schedule_entries_rebuild (${colNames}) SELECT ${colNames} FROM schedule_entries`);
+      db.exec("DROP TABLE schedule_entries");
+      db.exec('ALTER TABLE schedule_entries_rebuild RENAME TO schedule_entries');
+    });
+    rebuild();
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS shifts (
