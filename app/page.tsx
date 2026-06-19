@@ -1228,6 +1228,7 @@ const PHASE_TIMELINE: Record<string, { bg: string; border: string; text: string 
 function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEntry[]; selectedDate: string; session: AppSession | null }) {
   const myTeamId = session?.teamId;
   const mySpeakerId = session?.speakerId;
+  const customPhases = useContext(CustomPhasesContext);
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -1322,14 +1323,17 @@ function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEnt
                   const isMyTeam = myTeamId != null && entry.teams?.some(t => t.id === myTeamId);
                   const isMySpeaker = mySpeakerId != null && entry.speaker_id === mySpeakerId;
                   const phase = PHASE_TIMELINE[entry.phase] ?? PHASE_TIMELINE.pause;
+                  const cust = customPhases[entry.phase];
 
                   let blockCls = `absolute left-1 right-1 rounded-lg border-l-4 overflow-hidden cursor-default transition-opacity px-1.5 py-1 ${phase.bg} ${phase.border} ${phase.text}`;
                   if (done) blockCls += " opacity-40";
                   if (isMyTeam) blockCls = `absolute left-1 right-1 rounded-lg border-l-4 overflow-hidden cursor-default transition-opacity px-1.5 py-1 bg-violet-100 dark:bg-violet-900/40 border-violet-500 text-violet-900 dark:text-violet-200 ring-1 ring-violet-400`;
                   if (isMySpeaker && !isMyTeam) blockCls = `absolute left-1 right-1 rounded-lg border-l-4 overflow-hidden cursor-default transition-opacity px-1.5 py-1 bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-400`;
+                  // Eigene Phase: Farbe per inline-Style (linke Kante voll, Hintergrund leicht getönt)
+                  const customStyle = cust && !isMyTeam && !isMySpeaker ? { borderLeftColor: cust.color, backgroundColor: cust.color + "22" } : {};
 
                   return (
-                    <div key={entry.id} className={blockCls} style={{ top, height, zIndex: 10 }}
+                    <div key={entry.id} className={blockCls} style={{ top, height, zIndex: 10, ...customStyle }}
                       title={`${entry.pruefungs_id ? entry.pruefungs_id + " · " : ""}${entry.title}\n${entry.start_time}–${entry.end_time}${entry.teams?.length ? "\n" + entry.teams.map(t => t.name).join(", ") : ""}`}>
                       <div className="font-semibold leading-tight truncate" style={{ fontSize: height < 36 ? "9px" : "11px" }}>
                         {entry.pruefungs_id && <span className="opacity-60 mr-1">{entry.pruefungs_id}</span>}
@@ -1369,6 +1373,12 @@ function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEnt
         {Object.entries(PHASE_CONFIG).map(([k, v]) => (
           <span key={k} className="flex items-center gap-1">
             <span className={`w-2.5 h-2.5 rounded-sm border-l-2 ${PHASE_TIMELINE[k].border} ${PHASE_TIMELINE[k].bg}`} />
+            {v.label}
+          </span>
+        ))}
+        {Object.entries(customPhases).map(([k, v]) => (
+          <span key={k} className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: v.color }} />
             {v.label}
           </span>
         ))}
