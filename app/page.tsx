@@ -1076,6 +1076,7 @@ export default function App() {
               </span>
             )}
             {session?.role === "team" && <span className="text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:block">👥 {session.teamName}</span>}
+            {session?.role === "helper" && <span className="text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:block">🙋 {session.helperName}</span>}
             {session?.role === "speaker" && (
               <span className="text-xs px-2 py-0.5 rounded-full mr-1 hidden sm:block font-medium text-white" style={{ backgroundColor: session.speakerColor || "#6366f1" }}>
                 🎙 {session.speakerName} · {session.speakerRole}
@@ -2118,15 +2119,38 @@ function ArenasTab({ arenas, onRefresh }: { arenas: Arena[]; onRefresh: () => vo
 
 function TeamsTab({ teams, onRefresh }: { teams: Team[]; onRefresh: () => void }) {
   const [edit, setEdit] = useState<Partial<Team> & { newPassword?: string; clearPassword?: boolean } | null>(null);
+  const [allHelpers, setAllHelpers] = useState<Helper[]>([]);
+  const [memberIds, setMemberIds] = useState<number[]>([]);
+  const [leadIds, setLeadIds] = useState<(number | null)[]>([null, null, null]);
+  const [memberSearch, setMemberSearch] = useState("");
+
+  useEffect(() => { fetch("/api/helpers/roster").then(r => r.ok ? r.json() : []).then(setAllHelpers); }, []);
+
+  async function openEdit(t: Partial<Team> | null) {
+    setMemberSearch("");
+    if (t?.id) {
+      const d = await fetch(`/api/teams/membership?team_id=${t.id}`).then(r => r.ok ? r.json() : { members: [], leads: [] });
+      setMemberIds(d.members ?? []);
+      setLeadIds([d.leads?.[0] ?? null, d.leads?.[1] ?? null, d.leads?.[2] ?? null]);
+      setEdit({ ...t, newPassword: "" });
+    } else {
+      setMemberIds([]); setLeadIds([null, null, null]); setEdit(t ?? {});
+    }
+  }
 
   async function save() {
     if (!edit) return;
     const method = edit.id ? "PUT" : "POST";
-    const payload = {
-      ...edit,
-      password: edit.clearPassword ? null : (edit.newPassword || undefined),
-    };
-    await fetch("/api/teams", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const payload = { ...edit, password: edit.clearPassword ? null : (edit.newPassword || undefined) };
+    const res = await fetch("/api/teams", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const saved = await res.json().catch(() => ({}));
+    const teamId = edit.id ?? saved.id ?? saved.lastInsertRowid;
+    if (teamId) {
+      await fetch("/api/teams/membership", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ team_id: teamId, member_ids: memberIds, lead_ids: leadIds.filter((x): x is number => !!x) }),
+      });
+    }
     setEdit(null); onRefresh();
   }
 
@@ -2136,44 +2160,80 @@ function TeamsTab({ teams, onRefresh }: { teams: Team[]; onRefresh: () => void }
     onRefresh();
   }
 
+  const hname = (id: number) => { const h = allHelpers.find(x => x.id === id); return h ? `${h.first_name} ${h.last_name}` : "?"; };
+  const mq = memberSearch.trim().toLowerCase();
+  const visibleHelpers = mq ? allHelpers.filter(h => `${h.first_name} ${h.last_name} ${h.email}`.toLowerCase().includes(mq)) : allHelpers;
+
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-200">Einsatzgruppen</h3>
-        <button onClick={() => setEdit({})} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Hinzufügen</button>
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200">Einsatzgruppen / Teams</h3>
+        <button onClick={() => openEdit({})} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Hinzufügen</button>
       </div>
+      {allHelpers.length === 0 && <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Noch keine Helfer angelegt – Mitglieder/Verantwortliche kannst du erst nach dem Anlegen von Helfern (Verwaltung → Helfer) zuordnen.</p>}
       {teams.map(t => (
         <div key={t.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3">
           <div className="flex-1">
             <p className="font-medium text-gray-800 dark:text-gray-100">👥 {t.name}</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              {t.has_password ? <span className="text-green-600">✓ Login aktiv</span> : <span className="text-gray-400">Kein Login</span>}
+              {t.has_password ? <span className="text-green-600">✓ Team-Login</span> : <span className="text-gray-400">Kein Team-Login</span>}
             </p>
           </div>
-          <button onClick={() => setEdit({ ...t, newPassword: "" })} className="text-xs text-blue-600 hover:underline mr-2">Bearbeiten</button>
+          <button onClick={() => openEdit(t)} className="text-xs text-blue-600 hover:underline mr-2">Bearbeiten</button>
           <button onClick={() => del(t.id)} className="text-xs text-red-500 hover:underline">Löschen</button>
         </div>
       ))}
       {edit !== null && (
-        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
-          <Field label="Name"><input value={edit.name ?? ""} onChange={e => setEdit(v => ({ ...v!, name: e.target.value }))} className={inputClass} /></Field>
-          <Field label="Login-Passwort für dieses Team">
-            <input
-              type="password" value={edit.newPassword ?? ""}
+        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-4">
+          <Field label="Name"><input value={edit.name ?? ""} onChange={e => setEdit(v => ({ ...v!, name: e.target.value }))} className={inputClass} autoFocus /></Field>
+
+          {/* Verantwortliche (bis zu 3, nur aus Helferliste) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Verantwortliche (bis zu 3)</label>
+            <div className="space-y-2">
+              {[0, 1, 2].map(i => (
+                <select key={i} value={leadIds[i] ?? ""} onChange={e => setLeadIds(v => { const n = [...v]; n[i] = e.target.value ? Number(e.target.value) : null; return n; })}
+                  className={inputClass}>
+                  <option value="">— Verantwortliche/r {i + 1} —</option>
+                  {allHelpers.map(h => <option key={h.id} value={h.id}>{h.first_name} {h.last_name}</option>)}
+                </select>
+              ))}
+            </div>
+          </div>
+
+          {/* Mitglieder (Mehrfachauswahl) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Mitglieder ({memberIds.length} ausgewählt)</label>
+            {allHelpers.length > 8 && <input value={memberSearch} onChange={e => setMemberSearch(e.target.value)} placeholder="🔍 Helfer suchen…" className={`${inputClass} mb-2`} />}
+            <div className="max-h-52 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
+              {visibleHelpers.length === 0 && <p className="text-sm text-gray-400 p-3">Keine Helfer.</p>}
+              {visibleHelpers.map(h => (
+                <label key={h.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <input type="checkbox" checked={memberIds.includes(h.id)}
+                    onChange={e => setMemberIds(v => e.target.checked ? [...v, h.id] : v.filter(x => x !== h.id))} />
+                  <span className="text-gray-800 dark:text-gray-100">{h.first_name} {h.last_name}</span>
+                  <span className="text-xs text-gray-400">{h.email}</span>
+                </label>
+              ))}
+            </div>
+            {memberIds.length > 0 && <p className="text-xs text-gray-400 mt-1">Ausgewählt: {memberIds.map(hname).join(", ")}</p>}
+          </div>
+
+          <Field label="Login-Passwort für dieses Team (optional)">
+            <input type="password" value={edit.newPassword ?? ""}
               onChange={e => setEdit(v => ({ ...v!, newPassword: e.target.value, clearPassword: false }))}
-              className={inputClass} placeholder={edit.has_password ? "Neues Passwort (leer = nicht ändern)" : "Passwort setzen für Team-Login"}
-            />
+              className={inputClass} placeholder={edit.has_password ? "Neues Passwort (leer = nicht ändern)" : "Passwort setzen für Team-Login"} />
           </Field>
           {edit.has_password && (
             <label className="flex items-center gap-2 text-sm text-red-600 cursor-pointer">
               <input type="checkbox" checked={edit.clearPassword ?? false}
                 onChange={e => setEdit(v => ({ ...v!, clearPassword: e.target.checked, newPassword: "" }))} />
-              Login-Passwort entfernen
+              Team-Login-Passwort entfernen
             </label>
           )}
           <div className="flex gap-2">
             <button onClick={save} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">Speichern</button>
-            <button onClick={() => setEdit(null)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
+            <button onClick={() => setEdit(null)} className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200">Abbrechen</button>
           </div>
         </div>
       )}
@@ -2722,10 +2782,11 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
 interface Shift {
   id: number; tournament_id?: number; date: string; start_time: string; end_time: string;
   task: string; notes?: string; worker_count: number; attended_count: number;
+  team_id?: number | null; team_name?: string | null;
   assignments: ShiftAssignment[];
 }
 interface ShiftAssignment {
-  id: number; shift_id: number; worker_name: string; attended: number; notes?: string;
+  id: number; shift_id: number; worker_name: string; helper_id?: number | null; attended: number; notes?: string;
 }
 
 function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tournament?: Tournament | null }) {
@@ -2733,8 +2794,17 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
   const [filterDate, setFilterDate] = useState("");
   const [editShift, setEditShift] = useState<Partial<Shift> | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [newWorker, setNewWorker] = useState<{ [shiftId: number]: string }>({});
+  const [newHelper, setNewHelper] = useState<{ [shiftId: number]: string }>({});
   const [view, setView] = useState<"shifts" | "report">("shifts");
+  const [allHelpers, setAllHelpers] = useState<Helper[]>([]);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/helpers/roster").then(r => r.ok ? r.json() : []).then(setAllHelpers);
+    fetch("/api/teams").then(r => r.ok ? r.json() : []).then(setAllTeams);
+  }, []);
+  function showFlash(t: string) { setFlash(t); setTimeout(() => setFlash(null), 6000); }
 
   const load = useCallback(async () => {
     let url = "/api/shifts";
@@ -2751,11 +2821,20 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
   async function saveShift() {
     if (!editShift) return;
     const method = editShift.id ? "PUT" : "POST";
-    await fetch("/api/shifts", {
+    const res = await fetch("/api/shifts", {
       method, headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...editShift, tournament_id: tournamentId }),
     });
+    const d = await res.json().catch(() => ({}));
+    if (d.notified?.members) showFlash(`Team „${d.notified.teamName}" benachrichtigt: ${d.notified.sent} gesendet${d.notified.skipped ? `, ${d.notified.skipped} übersprungen` : ""}${d.notified.failed ? `, ${d.notified.failed} fehlgeschlagen` : ""}.`);
     setEditShift(null); load();
+  }
+
+  async function notifyShift(shiftId: number) {
+    const res = await fetch("/api/shifts/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shift_id: shiftId }) });
+    const d = await res.json().catch(() => ({}));
+    if (d.members) showFlash(`Team „${d.teamName}" benachrichtigt: ${d.sent} gesendet${d.skipped ? `, ${d.skipped} übersprungen` : ""}${d.failed ? `, ${d.failed} fehlgeschlagen` : ""}.`);
+    else showFlash("Kein Team zugewiesen – nichts zu senden.");
   }
 
   async function deleteShift(id: number) {
@@ -2764,14 +2843,15 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
     load();
   }
 
-  async function addWorker(shiftId: number) {
-    const name = newWorker[shiftId]?.trim();
-    if (!name) return;
-    await fetch("/api/shifts/assignments", {
+  async function addHelper(shiftId: number) {
+    const helperId = newHelper[shiftId];
+    if (!helperId) return;
+    const res = await fetch("/api/shifts/assignments", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shift_id: shiftId, worker_name: name }),
+      body: JSON.stringify({ shift_id: shiftId, helper_id: Number(helperId) }),
     });
-    setNewWorker(v => ({ ...v, [shiftId]: "" }));
+    if (!res.ok) { const d = await res.json().catch(() => ({})); showFlash(d.error || "Zuweisung fehlgeschlagen"); return; }
+    setNewHelper(v => ({ ...v, [shiftId]: "" }));
     load();
   }
 
@@ -2970,6 +3050,7 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
 
   return (
     <div className="space-y-4">
+      {flash && <div className="text-sm rounded-lg px-3 py-2 border bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">{flash}</div>}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-lg">🕐 Schichtplan</h3>
         <div className="flex gap-2 items-center flex-wrap">
@@ -3010,9 +3091,16 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
             <Field label="Bis"><input type="time" value={editShift.end_time ?? ""} onChange={e => setEditShift(v => ({ ...v!, end_time: e.target.value }))} className={inputClass} /></Field>
           </div>
           <Field label="Notizen (optional)"><input value={editShift.notes ?? ""} onChange={e => setEditShift(v => ({ ...v!, notes: e.target.value }))} className={inputClass} placeholder="Besonderheiten..." /></Field>
+          <Field label="Team zuweisen (optional – benachrichtigt alle Mitglieder)">
+            <select value={editShift.team_id ?? ""} onChange={e => setEditShift(v => ({ ...v!, team_id: e.target.value ? Number(e.target.value) : null }))} className={inputClass}>
+              <option value="">— Kein Team —</option>
+              {allTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </Field>
+          <p className="text-xs text-gray-400">Bei (neuer) Team-Zuweisung werden alle Mitglieder automatisch per E-Mail informiert.</p>
           <div className="flex gap-2">
             <button onClick={saveShift} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">Speichern</button>
-            <button onClick={() => setEditShift(null)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
+            <button onClick={() => setEditShift(null)} className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200">Abbrechen</button>
           </div>
         </div>
       )}
@@ -3042,7 +3130,8 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
                   </span>
                   <span className="text-xs text-gray-400">{shift.date}</span>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {shift.team_name && <span className="text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full">👥 {shift.team_name}</span>}
                   <span className="text-xs text-gray-500">{shift.worker_count} Mitarbeiter</span>
                   {shift.attended_count > 0 && (
                     <span className="text-xs text-green-600">✓ {shift.attended_count} anwesend</span>
@@ -3051,6 +3140,7 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
                 </div>
               </div>
               <div className="flex gap-1 shrink-0">
+                {shift.team_id && <button onClick={e => { e.stopPropagation(); notifyShift(shift.id); }} title="Team benachrichtigen" className="text-xs text-emerald-600 hover:underline px-1">📨 Senden</button>}
                 <button onClick={e => { e.stopPropagation(); setEditShift({ ...shift }); }} className="text-xs text-blue-600 hover:underline px-1">Bearbeiten</button>
                 <button onClick={e => { e.stopPropagation(); deleteShift(shift.id); }} className="text-xs text-red-500 hover:underline px-1">Löschen</button>
                 <span className="text-gray-400 text-sm">{isExpanded ? "▲" : "▼"}</span>
@@ -3070,16 +3160,24 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
                     <button onClick={() => removeWorker(a.id)} className="text-xs text-red-400 hover:text-red-600">✕</button>
                   </div>
                 ))}
-                <div className="flex gap-2 mt-2">
-                  <input
-                    value={newWorker[shift.id] ?? ""}
-                    onChange={e => setNewWorker(v => ({ ...v, [shift.id]: e.target.value }))}
-                    onKeyDown={e => e.key === "Enter" && addWorker(shift.id)}
-                    placeholder="Mitarbeitername..."
-                    className={inputClass + " text-sm py-1.5 flex-1"}
-                  />
-                  <button onClick={() => addWorker(shift.id)} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+</button>
-                </div>
+                {(() => {
+                  const assignedIds = new Set(shift.assignments.map(a => a.helper_id).filter(Boolean));
+                  const available = allHelpers.filter(h => !assignedIds.has(h.id));
+                  return (
+                    <div className="flex gap-2 mt-2">
+                      <select
+                        value={newHelper[shift.id] ?? ""}
+                        onChange={e => setNewHelper(v => ({ ...v, [shift.id]: e.target.value }))}
+                        className={inputClass + " text-sm py-1.5 flex-1"}
+                        disabled={allHelpers.length === 0}
+                      >
+                        <option value="">{allHelpers.length === 0 ? "Keine Helfer angelegt" : "Helfer auswählen…"}</option>
+                        {available.map(h => <option key={h.id} value={h.id}>{h.first_name} {h.last_name}</option>)}
+                      </select>
+                      <button onClick={() => addHelper(shift.id)} disabled={!newHelper[shift.id]} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">+ Zuweisen</button>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
