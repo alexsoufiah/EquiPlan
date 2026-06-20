@@ -108,6 +108,7 @@ function InstallBanner() {
 
 function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
   const [screen, setScreen] = useState<"welcome" | "login" | "contact">("welcome");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -117,12 +118,12 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+      const res = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password, email: email.trim() || undefined }) });
       if (res.ok) {
         const data = await res.json();
-        onLogin({ role: data.role, teamId: data.teamId, teamName: data.teamName, speakerId: data.speakerId, speakerName: data.speakerName, speakerRole: data.speakerRole, speakerColor: data.speakerColor, adminName: data.adminName, adminTournamentId: data.adminTournamentId });
+        onLogin({ role: data.role, teamId: data.teamId, teamName: data.teamName, speakerId: data.speakerId, speakerName: data.speakerName, speakerRole: data.speakerRole, speakerColor: data.speakerColor, adminName: data.adminName, adminTournamentId: data.adminTournamentId, helperId: data.helperId, helperName: data.helperName });
       } else if (res.status === 401 || res.status === 403) {
-        setError("Passwort nicht erkannt. Bitte prüfe deine Eingabe.");
+        setError(email.trim() ? "E-Mail oder Passwort falsch." : "Passwort nicht erkannt. Bitte prüfe deine Eingabe.");
       } else {
         setError("Server-Fehler. Bitte versuche es später erneut.");
       }
@@ -196,14 +197,22 @@ function LoginForm({ onLogin }: { onLogin: (s: AppSession) => void }) {
               </div>
               <form onSubmit={submit} className="space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-Mail <span className="font-normal text-gray-400">(nur Helfer)</span></label>
+                  <input
+                    type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email"
+                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    placeholder="deine@email.de"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Passwort</label>
                   <input
-                    type="password" value={password} onChange={e => setPassword(e.target.value)}
+                    type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password"
                     className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                     placeholder="Zugangspasswort eingeben" autoFocus
                   />
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-                    Dein persönliches Passwort erhältst du vom Veranstalter. Damit wirst du automatisch als Helfer, Team, Sprecher oder Admin erkannt.
+                    <strong>Helfer:</strong> E-Mail + zugesendetes Passwort. <strong>Team/Sprecher/Admin:</strong> nur das Passwort (E-Mail leer lassen).
                   </p>
                 </div>
                 {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -851,7 +860,7 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
   );
 }
 
-interface AppSession { role: string; teamId?: number; teamName?: string; speakerId?: number; speakerName?: string; speakerRole?: string; speakerColor?: string; adminName?: string; adminTournamentId?: number; }
+interface AppSession { role: string; teamId?: number; teamName?: string; speakerId?: number; speakerName?: string; speakerRole?: string; speakerColor?: string; adminName?: string; adminTournamentId?: number; helperId?: number; helperName?: string; }
 type AppView = "tournament-select" | "schedule" | "admin";
 
 export default function App() {
@@ -1717,7 +1726,7 @@ function DelayPanel({ tournamentId, date, arenas, delays, onChanged }: {
 type AdminMainTab = "zeitplan" | "turnier" | "verwaltung";
 type ZeitplanSub = "entries" | "shifts";
 type TurnierSub = "details" | "organisation" | "phasen" | "kontakte" | "dokumente" | "share";
-type VerwaltungSub = "settings" | "api" | "inquiries" | "admins";
+type VerwaltungSub = "settings" | "api" | "inquiries" | "admins" | "helpers" | "notifications";
 
 function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () => void; activeTournamentId?: number; session: AppSession | null }) {
   const isSuperAdmin = !session?.adminTournamentId;
@@ -1808,6 +1817,8 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
         <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 pb-3 flex-wrap">
           <button className={subBtnCls(verwaltungSub === "settings")} onClick={() => setVerwaltungSub("settings")}>Passwörter</button>
           <button className={subBtnCls(verwaltungSub === "api")} onClick={() => setVerwaltungSub("api")}>API-Zugang</button>
+          <button className={subBtnCls(verwaltungSub === "helpers")} onClick={() => setVerwaltungSub("helpers")}>🙋 Helfer</button>
+          <button className={subBtnCls(verwaltungSub === "notifications")} onClick={() => setVerwaltungSub("notifications")}>📨 Benachrichtigungen</button>
           <button className={subBtnCls(verwaltungSub === "inquiries")} onClick={() => setVerwaltungSub("inquiries")}>Anfragen</button>
           <button className={subBtnCls(verwaltungSub === "admins")} onClick={() => setVerwaltungSub("admins")}>👥 Admins</button>
         </div>
@@ -1849,6 +1860,8 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
 
       {main === "verwaltung" && isSuperAdmin && verwaltungSub === "settings" && <PasswordSettings />}
       {main === "verwaltung" && isSuperAdmin && verwaltungSub === "api" && <ApiKeySettings />}
+      {main === "verwaltung" && isSuperAdmin && verwaltungSub === "helpers" && <HelpersRosterTab />}
+      {main === "verwaltung" && isSuperAdmin && verwaltungSub === "notifications" && <NotificationsTab />}
       {main === "verwaltung" && isSuperAdmin && verwaltungSub === "inquiries" && <InquiriesTab />}
       {main === "verwaltung" && isSuperAdmin && verwaltungSub === "admins" && <AdminsTab />}
 
@@ -3352,6 +3365,188 @@ function DocumentsViewer({ tournamentId, embedded }: { tournamentId: number; emb
         ))}
       </div>
       {fullscreenDoc && <PdfFullscreen doc={fullscreenDoc} onClose={() => setFullscreenDoc(null)} />}
+    </div>
+  );
+}
+
+// ── Zentrale Helferliste (Stammdaten + Accounts) ─────────────────────────────
+interface Helper { id: number; first_name: string; last_name: string; email: string; phone?: string; has_account?: number; team_count?: number; created_at?: string; }
+
+function HelpersRosterTab() {
+  const [helpers, setHelpers] = useState<Helper[]>([]);
+  const [edit, setEdit] = useState<Partial<Helper> | null>(null);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; updated: number; mailed: number; mailSkipped: number; errorCount: number; errors: { row: number; error: string }[] } | null>(null);
+  const [search, setSearch] = useState("");
+
+  const load = useCallback(async () => {
+    const r = await fetch("/api/helpers/roster");
+    if (r.ok) setHelpers(await r.json());
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  function flash(text: string, ok: boolean) { setMsg({ text, ok }); setTimeout(() => setMsg(null), 6000); }
+
+  async function save() {
+    if (!edit?.first_name?.trim() || !edit?.last_name?.trim() || !edit?.email?.trim()) { flash("Vorname, Nachname und E-Mail sind Pflicht.", false); return; }
+    setSaving(true);
+    const method = edit.id ? "PUT" : "POST";
+    const r = await fetch("/api/helpers/roster", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(edit) });
+    const d = await r.json().catch(() => ({}));
+    setSaving(false);
+    if (!r.ok) { flash(d.error || "Speichern fehlgeschlagen", false); return; }
+    if (!edit.id) {
+      const sent = d.emailStatus === "sent";
+      flash(sent ? "Helfer angelegt – Zugangsdaten per E-Mail versendet." : `Helfer angelegt. E-Mail ${d.emailStatus === "skipped" ? "übersprungen (kein Mail-Setup)" : "fehlgeschlagen"} – Passwort manuell weitergeben.`, true);
+    } else flash("Gespeichert.", true);
+    setEdit(null); load();
+  }
+
+  async function del(h: Helper) {
+    if (!confirm(`${h.first_name} ${h.last_name} wirklich löschen?`)) return;
+    await fetch("/api/helpers/roster", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: h.id }) });
+    load();
+  }
+
+  async function resetPw(h: Helper) {
+    if (!confirm(`Neues Passwort für ${h.first_name} ${h.last_name} erzeugen und per E-Mail senden?`)) return;
+    const r = await fetch("/api/helpers/roster", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reset", id: h.id }) });
+    const d = await r.json().catch(() => ({}));
+    flash(d.emailStatus === "sent" ? "Neues Passwort versendet." : `Passwort gesetzt, E-Mail ${d.emailStatus === "skipped" ? "übersprungen (kein Mail-Setup)" : "fehlgeschlagen"}.`, d.emailStatus === "sent");
+  }
+
+  async function importExcel(file: File) {
+    setImporting(true); setImportResult(null);
+    const fd = new FormData(); fd.append("file", file);
+    const r = await fetch("/api/helpers/import", { method: "POST", body: fd });
+    const d = await r.json().catch(() => ({}));
+    setImporting(false);
+    if (!r.ok) { flash(d.error || "Import fehlgeschlagen", false); return; }
+    setImportResult(d); load();
+  }
+
+  const q = search.trim().toLowerCase();
+  const filtered = q ? helpers.filter(h => `${h.first_name} ${h.last_name} ${h.email}`.toLowerCase().includes(q)) : helpers;
+
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">🙋 Zentrale Helferliste</h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Stammdaten aller Helfer. Beim Anlegen wird ein Passwort erzeugt und per E-Mail verschickt.</p>
+        </div>
+        <div className="flex gap-2">
+          <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition ${importing ? "bg-gray-300 text-gray-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+            {importing ? "Importiere…" : "📥 Excel-Import"}
+            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={importing}
+              onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = ""; }} />
+          </label>
+          <button onClick={() => setEdit({})} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Helfer</button>
+        </div>
+      </div>
+
+      {msg && <div className={`text-sm rounded-lg px-3 py-2 border ${msg.ok ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>{msg.text}</div>}
+
+      {importResult && (
+        <div className="text-sm rounded-lg px-3 py-2.5 border bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 space-y-1">
+          <p><strong>Import abgeschlossen:</strong> {importResult.created} neu, {importResult.updated} aktualisiert, {importResult.mailed} Mails versendet{importResult.mailSkipped ? `, ${importResult.mailSkipped} ohne Mail` : ""}.</p>
+          {importResult.errorCount > 0 && <p className="text-red-600">{importResult.errorCount} Fehler: {importResult.errors.map(e => `Zeile ${e.row} (${e.error})`).join("; ")}</p>}
+        </div>
+      )}
+
+      {edit !== null && (
+        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Vorname *"><input value={edit.first_name ?? ""} onChange={e => setEdit(v => ({ ...v!, first_name: e.target.value }))} className={inputClass} autoFocus /></Field>
+            <Field label="Nachname *"><input value={edit.last_name ?? ""} onChange={e => setEdit(v => ({ ...v!, last_name: e.target.value }))} className={inputClass} /></Field>
+            <Field label="E-Mail *"><input type="email" value={edit.email ?? ""} onChange={e => setEdit(v => ({ ...v!, email: e.target.value }))} className={inputClass} placeholder="helfer@email.de" /></Field>
+            <Field label="Telefon (optional)"><input type="tel" value={edit.phone ?? ""} onChange={e => setEdit(v => ({ ...v!, phone: e.target.value }))} className={inputClass} /></Field>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">{saving ? "…" : edit.id ? "Speichern" : "Anlegen + Zugang senden"}</button>
+            <button onClick={() => setEdit(null)} className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-200">Abbrechen</button>
+          </div>
+        </div>
+      )}
+
+      {helpers.length > 8 && (
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Helfer suchen…" className={inputClass} />
+      )}
+
+      <div className="space-y-2">
+        {filtered.length === 0 && <p className="text-sm text-gray-400">Noch keine Helfer.</p>}
+        {filtered.map(h => (
+          <div key={h.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-800 dark:text-gray-100 break-words">{h.first_name} {h.last_name}
+                {!h.has_account && <span className="ml-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">kein Account</span>}
+                {(h.team_count ?? 0) > 0 && <span className="ml-2 text-xs text-indigo-600 dark:text-indigo-400">· {h.team_count} Team(s)</span>}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{h.email}{h.phone ? ` · ${h.phone}` : ""}</p>
+            </div>
+            <button onClick={() => resetPw(h)} title="Neues Passwort senden" className="text-xs text-emerald-600 hover:underline shrink-0">🔑 Zugang</button>
+            <button onClick={() => setEdit({ ...h })} className="text-xs text-blue-600 hover:underline shrink-0">Bearbeiten</button>
+            <button onClick={() => del(h)} className="text-xs text-red-500 hover:underline shrink-0">Löschen</button>
+          </div>
+        ))}
+      </div>
+
+      <div className="text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-700 pt-3">
+        <strong>Excel-Format:</strong> Spalten <code>Vorname</code>, <code>Nachname</code>, <code>E-Mail</code>, <code>Telefon</code> (erste Zeile = Überschriften). Bestehende Helfer (gleiche E-Mail) werden aktualisiert.
+      </div>
+    </div>
+  );
+}
+
+// ── Benachrichtigungs-Protokoll ──────────────────────────────────────────────
+interface NotifLog { id: number; kind: string; email: string; subject: string; status: string; detail?: string; created_at: string; }
+
+function NotificationsTab() {
+  const [logs, setLogs] = useState<NotifLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await fetch("/api/notifications");
+    if (r.ok) setLogs(await r.json());
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const statusBadge = (s: string) =>
+    s === "sent" ? "bg-green-100 text-green-700 border-green-200"
+    : s === "failed" ? "bg-red-100 text-red-700 border-red-200"
+    : "bg-gray-100 text-gray-600 border-gray-200";
+  const kindLabel = (k: string) => k === "credentials" ? "Zugangsdaten" : k === "shift_assignment" ? "Einteilung" : k;
+
+  return (
+    <div className="space-y-3 max-w-3xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">📨 Versand-Protokoll</h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Welche E-Mails wurden versendet (Zugangsdaten + Einteilungen).</p>
+        </div>
+        <button onClick={load} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">Aktualisieren</button>
+      </div>
+
+      {loading ? <p className="text-sm text-gray-400">Laden…</p> : logs.length === 0 ? (
+        <p className="text-sm text-gray-400">Noch keine Benachrichtigungen versendet.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {logs.map(l => (
+            <div key={l.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 flex items-center gap-3 text-sm">
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium border shrink-0 ${statusBadge(l.status)}`}>{l.status === "sent" ? "Gesendet" : l.status === "failed" ? "Fehler" : "Übersprungen"}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-800 dark:text-gray-100 truncate">{l.subject}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{kindLabel(l.kind)} · {l.email}{l.detail ? ` · ${l.detail}` : ""}</p>
+              </div>
+              <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">{new Date(l.created_at + "Z").toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
