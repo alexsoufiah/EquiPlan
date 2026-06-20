@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const db = getDb();
   const findByEmail = db.prepare("SELECT id FROM helpers WHERE email = ? COLLATE NOCASE");
-  const insert = db.prepare("INSERT INTO helpers (first_name, last_name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?)");
+  const insert = db.prepare("INSERT INTO helpers (first_name, last_name, email, phone, password_hash, plain_password) VALUES (?, ?, ?, ?, ?, ?)");
   const update = db.prepare("UPDATE helpers SET first_name=?, last_name=?, phone=? WHERE id=?");
 
   let created = 0, updated = 0, mailed = 0, mailSkipped = 0;
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     } else {
       const password = generatePassword();
       const hash = await hashPassword(password);
-      const r = insert.run(first, last, emailAddr, phone || null, hash);
+      const r = insert.run(first, last, emailAddr, phone || null, hash, password);
       created++;
       const status = await sendEmail({ to: emailAddr, subject: "Willkommen bei EquiPlan – deine Zugangsdaten", html: credentialsEmailHtml(first, emailAddr, password), kind: "credentials", helperId: Number(r.lastInsertRowid) });
       if (status === "sent") mailed++; else mailSkipped++;

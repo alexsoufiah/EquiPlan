@@ -1,9 +1,10 @@
 import { getDb } from "./db";
 import { sendEmail, shiftEmailHtml } from "./email";
+import { sendPushToHelpers } from "./push";
 
-// Benachrichtigt alle Mitglieder des einer Schicht zugewiesenen Teams per E-Mail.
-// Gibt eine Zusammenfassung zurück; protokolliert jede Mail in notifications_log.
-export async function notifyShiftTeam(shiftId: number): Promise<{ sent: number; skipped: number; failed: number; members: number; teamName: string | null }> {
+// Benachrichtigt alle Mitglieder des einer Schicht zugewiesenen Teams per E-Mail
+// UND per App-Push. Gibt eine Zusammenfassung zurück; jede Mail wird protokolliert.
+export async function notifyShiftTeam(shiftId: number): Promise<{ sent: number; skipped: number; failed: number; pushed: number; members: number; teamName: string | null }> {
   const db = getDb();
   const shift = db.prepare(`
     SELECT s.id, s.task, s.date, s.start_time, s.end_time, s.team_id, s.tournament_id,
@@ -17,7 +18,7 @@ export async function notifyShiftTeam(shiftId: number): Promise<{ sent: number; 
     team_id: number | null; tournament_id: number | null; team_name: string | null; tournament_name: string | null;
   } | undefined;
 
-  if (!shift || !shift.team_id) return { sent: 0, skipped: 0, failed: 0, members: 0, teamName: null };
+  if (!shift || !shift.team_id) return { sent: 0, skipped: 0, failed: 0, pushed: 0, members: 0, teamName: null };
 
   const members = db.prepare(`
     SELECT h.id, h.first_name, h.email FROM team_members tm
@@ -50,5 +51,16 @@ export async function notifyShiftTeam(shiftId: number): Promise<{ sent: number; 
     });
     if (status === "sent") sent++; else if (status === "failed") failed++; else skipped++;
   }
-  return { sent, skipped, failed, members: members.length, teamName: shift.team_name };
+
+  // Zusätzlich App-Push an die Mitglieder
+  let pushed = 0;
+  try {
+    pushed = await sendPushToHelpers(
+      members.map(m => m.id),
+      `Einteilung: ${shift.task}`,
+      `${shift.date} · ${shift.start_time}–${shift.end_time}${responsible ? ` · Ansprechpartner: ${responsible}` : ""}`,
+    );
+  } catch { /* Push-Fehler nicht eskalieren */ }
+
+  return { sent, skipped, failed, pushed, members: members.length, teamName: shift.team_name };
 }

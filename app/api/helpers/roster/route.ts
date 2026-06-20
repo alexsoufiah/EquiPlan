@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const h = db.prepare("SELECT id, first_name, email FROM helpers WHERE id = ?").get(body.id) as { id: number; first_name: string; email: string } | undefined;
     if (!h) return NextResponse.json({ error: "Helfer nicht gefunden" }, { status: 404 });
     const password = generatePassword();
-    db.prepare("UPDATE helpers SET password_hash = ? WHERE id = ?").run(await hashPassword(password), h.id);
+    db.prepare("UPDATE helpers SET password_hash = ?, plain_password = ? WHERE id = ?").run(await hashPassword(password), password, h.id);
     const status = await sendEmail({ to: h.email, subject: "Deine neuen EquiPlan-Zugangsdaten", html: credentialsEmailHtml(h.first_name, h.email, password), kind: "credentials", helperId: h.id });
     return NextResponse.json({ ok: true, emailStatus: status });
   }
@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
 
   const password = generatePassword();
   const hash = await hashPassword(password);
-  const r = db.prepare("INSERT INTO helpers (first_name, last_name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?)")
-    .run(first_name, last_name, emailAddr, phone || null, hash);
+  const r = db.prepare("INSERT INTO helpers (first_name, last_name, email, phone, password_hash, plain_password) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(first_name, last_name, emailAddr, phone || null, hash, password);
   const emailStatus = await sendEmail({ to: emailAddr, subject: "Willkommen bei EquiPlan – deine Zugangsdaten", html: credentialsEmailHtml(first_name, emailAddr, password), kind: "credentials", helperId: Number(r.lastInsertRowid) });
 
   const created = db.prepare("SELECT id, first_name, last_name, email, phone, created_at FROM helpers WHERE id = ?").get(r.lastInsertRowid);

@@ -1734,7 +1734,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
   const [main, setMain] = useState<AdminMainTab>("zeitplan");
   const [zeitplanSub, setZeitplanSub] = useState<ZeitplanSub>("entries");
   const [turnierSub, setTurnierSub] = useState<TurnierSub>("details");
-  const [verwaltungSub, setVerwaltungSub] = useState<VerwaltungSub>("settings");
+  const [verwaltungSub, setVerwaltungSub] = useState<VerwaltungSub>(isSuperAdmin ? "settings" : "helpers");
 
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
@@ -1794,7 +1794,7 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
       <div className="flex gap-2">
         <button className={mainBtnCls("zeitplan")} onClick={() => setMain("zeitplan")}>📅 Zeitplan</button>
         <button className={mainBtnCls("turnier")} onClick={() => setMain("turnier")}>🏆 Turnier</button>
-        {isSuperAdmin && <button className={mainBtnCls("verwaltung")} onClick={() => setMain("verwaltung")}>⚙️ Verwaltung</button>}
+        <button className={mainBtnCls("verwaltung")} onClick={() => setMain("verwaltung")}>⚙️ Verwaltung</button>
       </div>
 
       {/* Sub-Navigation */}
@@ -1814,14 +1814,16 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
           <button className={subBtnCls(turnierSub === "share")} onClick={() => setTurnierSub("share")}>🔗 Share-Link</button>
         </div>
       )}
-      {main === "verwaltung" && isSuperAdmin && (
+      {main === "verwaltung" && (
         <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 pb-3 flex-wrap">
-          <button className={subBtnCls(verwaltungSub === "settings")} onClick={() => setVerwaltungSub("settings")}>Passwörter</button>
-          <button className={subBtnCls(verwaltungSub === "api")} onClick={() => setVerwaltungSub("api")}>API-Zugang</button>
           <button className={subBtnCls(verwaltungSub === "helpers")} onClick={() => setVerwaltungSub("helpers")}>🙋 Helfer</button>
           <button className={subBtnCls(verwaltungSub === "notifications")} onClick={() => setVerwaltungSub("notifications")}>📨 Benachrichtigungen</button>
-          <button className={subBtnCls(verwaltungSub === "inquiries")} onClick={() => setVerwaltungSub("inquiries")}>Anfragen</button>
-          <button className={subBtnCls(verwaltungSub === "admins")} onClick={() => setVerwaltungSub("admins")}>👥 Admins</button>
+          {isSuperAdmin && <>
+            <button className={subBtnCls(verwaltungSub === "settings")} onClick={() => setVerwaltungSub("settings")}>Passwörter</button>
+            <button className={subBtnCls(verwaltungSub === "api")} onClick={() => setVerwaltungSub("api")}>API-Zugang</button>
+            <button className={subBtnCls(verwaltungSub === "inquiries")} onClick={() => setVerwaltungSub("inquiries")}>Anfragen</button>
+            <button className={subBtnCls(verwaltungSub === "admins")} onClick={() => setVerwaltungSub("admins")}>👥 Admins</button>
+          </>}
         </div>
       )}
 
@@ -1859,10 +1861,10 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
       {main === "turnier" && turnierSub === "dokumente" && <DocumentsAdminTab tournamentId={activeTournamentId} isSuperAdmin={isSuperAdmin} />}
       {main === "turnier" && turnierSub === "share" && <ShareTab tournamentId={activeTournamentId} />}
 
+      {main === "verwaltung" && verwaltungSub === "helpers" && <HelpersRosterTab />}
+      {main === "verwaltung" && verwaltungSub === "notifications" && <NotificationsTab />}
       {main === "verwaltung" && isSuperAdmin && verwaltungSub === "settings" && <PasswordSettings />}
       {main === "verwaltung" && isSuperAdmin && verwaltungSub === "api" && <ApiKeySettings />}
-      {main === "verwaltung" && isSuperAdmin && verwaltungSub === "helpers" && <HelpersRosterTab />}
-      {main === "verwaltung" && isSuperAdmin && verwaltungSub === "notifications" && <NotificationsTab />}
       {main === "verwaltung" && isSuperAdmin && verwaltungSub === "inquiries" && <InquiriesTab />}
       {main === "verwaltung" && isSuperAdmin && verwaltungSub === "admins" && <AdminsTab />}
 
@@ -2826,14 +2828,14 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
       body: JSON.stringify({ ...editShift, tournament_id: tournamentId }),
     });
     const d = await res.json().catch(() => ({}));
-    if (d.notified?.members) showFlash(`Team „${d.notified.teamName}" benachrichtigt: ${d.notified.sent} gesendet${d.notified.skipped ? `, ${d.notified.skipped} übersprungen` : ""}${d.notified.failed ? `, ${d.notified.failed} fehlgeschlagen` : ""}.`);
+    if (d.notified?.members) showFlash(`Team „${d.notified.teamName}" benachrichtigt: ${d.notified.sent} E-Mail(s)${d.notified.skipped ? `, ${d.notified.skipped} übersprungen` : ""}${d.notified.failed ? `, ${d.notified.failed} fehlgeschlagen` : ""}${d.notified.pushed ? ` · ${d.notified.pushed} Push` : ""}.`);
     setEditShift(null); load();
   }
 
   async function notifyShift(shiftId: number) {
     const res = await fetch("/api/shifts/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shift_id: shiftId }) });
     const d = await res.json().catch(() => ({}));
-    if (d.members) showFlash(`Team „${d.teamName}" benachrichtigt: ${d.sent} gesendet${d.skipped ? `, ${d.skipped} übersprungen` : ""}${d.failed ? `, ${d.failed} fehlgeschlagen` : ""}.`);
+    if (d.members) showFlash(`Team „${d.teamName}" benachrichtigt: ${d.sent} E-Mail(s)${d.skipped ? `, ${d.skipped} übersprungen` : ""}${d.failed ? `, ${d.failed} fehlgeschlagen` : ""}${d.pushed ? ` · ${d.pushed} Push` : ""}.`);
     else showFlash("Kein Team zugewiesen – nichts zu senden.");
   }
 
@@ -3478,6 +3480,14 @@ function HelpersRosterTab() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ created: number; updated: number; mailed: number; mailSkipped: number; errorCount: number; errors: { row: number; error: string }[] } | null>(null);
   const [search, setSearch] = useState("");
+  const [revealed, setRevealed] = useState<Record<number, string>>({});
+
+  async function togglePw(h: Helper) {
+    if (revealed[h.id] !== undefined) { setRevealed(v => { const n = { ...v }; delete n[h.id]; return n; }); return; }
+    const r = await fetch(`/api/helpers/roster/password?id=${h.id}`);
+    const d = await r.json().catch(() => ({}));
+    setRevealed(v => ({ ...v, [h.id]: d.password || "—" }));
+  }
 
   const load = useCallback(async () => {
     const r = await fetch("/api/helpers/roster");
@@ -3583,6 +3593,15 @@ function HelpersRosterTab() {
                 {(h.team_count ?? 0) > 0 && <span className="ml-2 text-xs text-indigo-600 dark:text-indigo-400">· {h.team_count} Team(s)</span>}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{h.email}{h.phone ? ` · ${h.phone}` : ""}</p>
+              {h.has_account ? (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
+                  <span className="text-gray-400">Passwort:</span>
+                  <span className="font-mono text-gray-700 dark:text-gray-200">{revealed[h.id] !== undefined ? revealed[h.id] : "••••••••"}</span>
+                  <button onClick={() => togglePw(h)} title={revealed[h.id] !== undefined ? "Verbergen" : "Anzeigen"} className="text-gray-400 hover:text-indigo-600 transition">
+                    {revealed[h.id] !== undefined ? "🙈" : "👁"}
+                  </button>
+                </p>
+              ) : null}
             </div>
             <button onClick={() => resetPw(h)} title="Neues Passwort senden" className="text-xs text-emerald-600 hover:underline shrink-0">🔑 Zugang</button>
             <button onClick={() => setEdit({ ...h })} className="text-xs text-blue-600 hover:underline shrink-0">Bearbeiten</button>

@@ -17,14 +17,15 @@ export async function POST(req: NextRequest) {
   const subscription = await req.json();
   const db = getDb();
   db.prepare(`
-    INSERT OR REPLACE INTO push_subscriptions (endpoint, subscription, role, team_id, speaker_id)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO push_subscriptions (endpoint, subscription, role, team_id, speaker_id, helper_id)
+    VALUES (?, ?, ?, ?, ?, ?)
   `).run(
     subscription.endpoint,
     JSON.stringify(subscription),
     session.role,
     session.teamId ?? null,
     session.speakerId ?? null,
+    session.helperId ?? null,
   );
 
   return NextResponse.json({ ok: true });

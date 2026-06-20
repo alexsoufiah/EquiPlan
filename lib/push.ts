@@ -88,3 +88,25 @@ export async function sendTargetedPush(
   const del = db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
   subs.forEach((s, i) => { if (results[i].status === "rejected") del.run(s.endpoint); });
 }
+
+// Gezielte App-Push an konkrete Helfer (über deren Push-Abos). Gibt die Anzahl
+// erreichter Geräte zurück.
+export async function sendPushToHelpers(helperIds: number[], title: string, body: string): Promise<number> {
+  const ids = [...new Set((helperIds ?? []).filter(Boolean))];
+  if (ids.length === 0) return 0;
+  initVapid();
+  const db = getDb();
+  const subs = db.prepare(
+    `SELECT endpoint, subscription FROM push_subscriptions WHERE helper_id IN (${ids.map(() => "?").join(",")})`
+  ).all(...ids) as { endpoint: string; subscription: string }[];
+  if (subs.length === 0) return 0;
+
+  const payload = JSON.stringify({ title, body, icon: "/icon.png" });
+  const results = await Promise.allSettled(
+    subs.map((s) => webpush.sendNotification(JSON.parse(s.subscription), payload))
+  );
+  const del = db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
+  let ok = 0;
+  subs.forEach((s, i) => { if (results[i].status === "rejected") del.run(s.endpoint); else ok++; });
+  return ok;
+}

@@ -279,6 +279,12 @@ function initSchema(db: Database.Database) {
   // Helfer-Bezug auf Schicht-Zuweisungen (Dropdown statt Freitext)
   const saCols = (db.prepare("PRAGMA table_info(shift_assignments)").all() as { name: string }[]).map(c => c.name);
   if (!saCols.includes("helper_id")) db.exec("ALTER TABLE shift_assignments ADD COLUMN helper_id INTEGER REFERENCES helpers(id) ON DELETE SET NULL");
+  // Klartext-Passwort, damit Admins die generierten Zugangsdaten ansehen können
+  const helperCols = (db.prepare("PRAGMA table_info(helpers)").all() as { name: string }[]).map(c => c.name);
+  if (!helperCols.includes("plain_password")) db.exec("ALTER TABLE helpers ADD COLUMN plain_password TEXT");
+  // Push-Subscriptions: Helfer-Bezug für gezielte App-Benachrichtigungen
+  const subCols2 = (db.prepare("PRAGMA table_info(push_subscriptions)").all() as { name: string }[]).map(c => c.name);
+  if (!subCols2.includes("helper_id")) db.exec("ALTER TABLE push_subscriptions ADD COLUMN helper_id INTEGER");
   // Optionale Team-Zuweisung an eine Schicht (löst Benachrichtigung der Mitglieder aus)
   const shiftCols = (db.prepare("PRAGMA table_info(shifts)").all() as { name: string }[]).map(c => c.name);
   if (!shiftCols.includes("team_id")) db.exec("ALTER TABLE shifts ADD COLUMN team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL");
