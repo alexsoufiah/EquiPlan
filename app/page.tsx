@@ -485,7 +485,7 @@ function tournamentDays(start?: string, end?: string): string[] {
 
 const LiveBadge = () => (
   <span className="ml-1 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-red-600 text-white align-middle">
-    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Jetzt
+    <span className="w-1.5 h-1.5 rounded-full bg-white eq-live" /> Jetzt
   </span>
 );
 
@@ -623,7 +623,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
 
   return (
     <>
-      <div onClick={() => setOpen(true)}>{cardContent}</div>
+      <div onClick={() => setOpen(true)} className="transition-transform duration-100 ease-out active:scale-[0.985]">{cardContent}</div>
       {open && <EntryDetailModal entry={entry} session={session ?? null} onClose={() => setOpen(false)} />}
     </>
   );
@@ -725,8 +725,8 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white dark:bg-gray-900 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="absolute inset-0 bg-black/50 eq-backdrop" onClick={onClose} />
+      <div className="relative bg-white dark:bg-gray-900 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto eq-sheet">
         {/* Header */}
         <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${phase.bg} dark:bg-[#1c1c2e]`}>
           <div className="flex items-start justify-between gap-2">
@@ -1481,7 +1481,7 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
               <button
                 key={d}
                 onClick={() => setSelectedDate(d)}
-                className={`shrink-0 px-3 py-2 rounded-xl border text-center transition ${
+                className={`shrink-0 px-3 py-2 rounded-xl border text-center transition-transform duration-100 ease-out active:scale-95 ${
                   active
                     ? "bg-indigo-600 text-white border-indigo-600 shadow"
                     : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -1623,11 +1623,12 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
         </div>
       ) : viewMode === "list" ? (
         <div className="space-y-2">
-          {filteredEntries.map(e => (
+          {filteredEntries.map((e, idx) => (
             <div
               key={e.id}
               ref={e.id === liveEntryId ? liveRef : undefined}
-              className={conflictIds.has(e.id) ? "rounded-xl outline-dashed outline-2 outline-amber-500/70 outline-offset-1" : ""}
+              className={`eq-fade-up ${conflictIds.has(e.id) ? "rounded-xl outline-dashed outline-2 outline-amber-500/70 outline-offset-1" : ""}`}
+              style={{ "--i": Math.min(idx, 12) } as React.CSSProperties}
             >
               <EntryCard entry={e} myTeamId={myTeamId} session={session} />
             </div>
@@ -3251,8 +3252,8 @@ function InfoModal({ tournamentId, onClose }: { tournamentId: number; onClose: (
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white dark:bg-gray-900 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="absolute inset-0 bg-black/50 eq-backdrop" onClick={onClose} />
+      <div className="relative bg-white dark:bg-gray-900 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto eq-sheet">
         <div className="sticky top-0 bg-white dark:bg-gray-900 px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900 dark:text-gray-100 text-lg">ℹ️ Infos</h2>

@@ -609,8 +609,8 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
 function StaffContactsModal({ contacts, onClose }: { contacts: { id: number; name: string; role?: string; phone?: string }[]; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-gray-900 border border-white/10 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div className="absolute inset-0 bg-black/60 eq-backdrop" onClick={onClose} />
+      <div className="relative bg-gray-900 border border-white/10 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto eq-sheet">
         <div className="sticky top-0 bg-gray-900 px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <h2 className="font-bold text-white text-lg">📞 Telefonliste</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">✕</button>
@@ -660,8 +660,8 @@ function HelperSignupModal({ entry, token, onClose, onSignedUp }: { entry: Entry
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative bg-gray-900 border border-white/10 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl p-5">
+      <div className="absolute inset-0 bg-black/70 eq-backdrop" onClick={onClose} />
+      <div className="relative bg-gray-900 border border-white/10 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl p-5 eq-sheet">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">✕</button>
         {done ? (
           <div className="text-center py-6 space-y-3">

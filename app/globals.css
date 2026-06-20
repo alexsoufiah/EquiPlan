@@ -33,6 +33,40 @@ html, body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* ── Motion-System ──────────────────────────────────────────────────────────
+   Eine kohärente, GPU-only Bewegungsebene (transform/opacity). Kurven & Dauer
+   nach Craft-Standard; auf dem Handy klar sichtbar, aber nicht verspielt. */
+:root {
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes eq-fade-up   { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes eq-sheet-up  { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: none; } }
+@keyframes eq-scale-in  { from { opacity: 0; transform: scale(0.96); }      to { opacity: 1; transform: none; } }
+@keyframes eq-backdrop  { from { opacity: 0; }                               to { opacity: 1; } }
+@keyframes eq-live      { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.55); } }
+
+/* Gestaffeltes Listen-Entrée: --i = Index (im JSX gesetzt, gedeckelt) */
+.eq-fade-up {
+  animation: eq-fade-up 380ms var(--ease-out-quint) both;
+  animation-delay: calc(var(--i, 0) * 38ms);
+  will-change: transform, opacity;
+}
+
+/* Modale: auf dem Handy Bottom-Sheet (slide-up), ab sm zentriert (scale-in) */
+.eq-sheet { animation: eq-sheet-up 360ms var(--ease-out-quint) both; }
+@media (min-width: 640px) { .eq-sheet { animation: eq-scale-in 240ms var(--ease-out-quint) both; } }
+.eq-backdrop { animation: eq-backdrop 240ms ease both; }
+
+/* Live-/Jetzt-Indikator: deutlich sichtbarer Puls */
+.eq-live { animation: eq-live 1.5s var(--ease-out-quint) infinite; }
+
+/* Tap-Feedback (zusätzlich zu active:scale-Utilities) */
+@media (prefers-reduced-motion: reduce) {
+  .eq-fade-up, .eq-sheet, .eq-backdrop, .eq-live { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+
 /* Barrierefreiheit: Bewegung reduzieren – Endzustände (Deckkraft/Farbe) bleiben,
    nur die Bewegung/Schleifen werden entfernt. */
 @media (prefers-reduced-motion: reduce) {
