@@ -63,7 +63,7 @@ html, body {
 /* Live-/Jetzt-Indikator: ruhiger, symmetrischer Puls (ease-in-out, kein Entrance-Curve) */
 .eq-live { animation: eq-live 1.5s ease-in-out infinite; }
 
-/* Tap-Feedback (zusätzlich zu active:scale-Utilities) */
+/* Reduzierte Bewegung: Motion-Klassen sofort im Endzustand zeigen (sichtbar) */
 @media (prefers-reduced-motion: reduce) {
   .eq-fade-up, .eq-sheet, .eq-backdrop, .eq-live { animation: none !important; opacity: 1 !important; transform: none !important; }
 }
