@@ -5,9 +5,22 @@ import { cookies } from "next/headers";
 
 export async function POST(req: NextRequest) {
   await initDefaultPasswords();
-  const { password } = await req.json();
+  const { password, email } = await req.json();
   const { viewerHash, adminHash } = getPasswords();
   const db = getDb();
+
+  // Helfer-Login per E-Mail + Passwort (wenn E-Mail angegeben)
+  if (email && typeof email === "string" && email.trim()) {
+    const helper = db.prepare("SELECT id, first_name, last_name, password_hash FROM helpers WHERE email = ? COLLATE NOCASE")
+      .get(email.trim()) as { id: number; first_name: string; last_name: string; password_hash: string | null } | undefined;
+    if (helper?.password_hash && await verifyPassword(password, helper.password_hash)) {
+      const name = `${helper.first_name} ${helper.last_name}`.trim();
+      const token = await createToken({ role: "helper", helperId: helper.id, helperName: name });
+      (await cookies()).set("session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" });
+      return NextResponse.json({ role: "helper", helperId: helper.id, helperName: name });
+    }
+    return NextResponse.json({ error: "E-Mail oder Passwort falsch" }, { status: 401 });
+  }
 
   // Haupt-Admin (legacy password)
   if (adminHash && await verifyPassword(password, adminHash)) {

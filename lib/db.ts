@@ -160,6 +160,44 @@ function initSchema(db: Database.Database) {
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Zentrale Helferliste (Stammdaten + Account). E-Mail = eindeutige Kennung.
+    CREATE TABLE IF NOT EXISTS helpers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      phone TEXT,
+      password_hash TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Helfer ↔ Teams (Mehrfach-Zuordnung)
+    CREATE TABLE IF NOT EXISTS team_members (
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      helper_id INTEGER NOT NULL REFERENCES helpers(id) ON DELETE CASCADE,
+      PRIMARY KEY (team_id, helper_id)
+    );
+
+    -- Bis zu 3 Verantwortliche pro Team (in der API begrenzt)
+    CREATE TABLE IF NOT EXISTS team_leads (
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      helper_id INTEGER NOT NULL REFERENCES helpers(id) ON DELETE CASCADE,
+      PRIMARY KEY (team_id, helper_id)
+    );
+
+    -- Benachrichtigungs-Protokoll (nachvollziehbar, was versendet wurde)
+    CREATE TABLE IF NOT EXISTS notifications_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,            -- 'credentials' | 'shift_assignment'
+      helper_id INTEGER,
+      email TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      context TEXT,                  -- JSON mit Schicht-/Team-/Event-Details
+      status TEXT NOT NULL,          -- 'sent' | 'skipped' | 'failed'
+      detail TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Push-Subscriptions: Ziel-Infos für gezielte Benachrichtigungen
@@ -237,6 +275,13 @@ function initSchema(db: Database.Database) {
       signed_up_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Helfer-Bezug auf Schicht-Zuweisungen (Dropdown statt Freitext)
+  const saCols = (db.prepare("PRAGMA table_info(shift_assignments)").all() as { name: string }[]).map(c => c.name);
+  if (!saCols.includes("helper_id")) db.exec("ALTER TABLE shift_assignments ADD COLUMN helper_id INTEGER REFERENCES helpers(id) ON DELETE SET NULL");
+  // Optionale Team-Zuweisung an eine Schicht (löst Benachrichtigung der Mitglieder aus)
+  const shiftCols = (db.prepare("PRAGMA table_info(shifts)").all() as { name: string }[]).map(c => c.name);
+  if (!shiftCols.includes("team_id")) db.exec("ALTER TABLE shifts ADD COLUMN team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL");
 
   if (cols.includes("team_id")) {
     const rows = db.prepare("SELECT id, team_id FROM schedule_entries WHERE team_id IS NOT NULL").all() as { id: number; team_id: number }[];

@@ -8,7 +8,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "pferdeplan-secret-key-change-in-production"
 );
 
-export type UserRole = "admin" | "viewer" | "team" | "speaker";
+export type UserRole = "admin" | "viewer" | "team" | "speaker" | "helper";
 
 export interface Session {
   role: UserRole;
@@ -21,6 +21,8 @@ export interface Session {
   adminId?: number;
   adminName?: string;
   adminTournamentId?: number; // null/undefined = super admin, set = show admin
+  helperId?: number;
+  helperName?: string;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -52,6 +54,8 @@ export async function verifyToken(token: string): Promise<Session | null> {
       adminId: payload.adminId as number | undefined,
       adminName: payload.adminName as string | undefined,
       adminTournamentId: payload.adminTournamentId as number | undefined,
+      helperId: payload.helperId as number | undefined,
+      helperName: payload.helperName as string | undefined,
     };
   } catch {
     return null;
