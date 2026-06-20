@@ -309,8 +309,8 @@ function OnboardingOverlay({ session, onDone }: { session: AppSession; onDone: (
   const s = steps[step];
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 eq-backdrop">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden eq-sheet">
         {/* Progress bar */}
         <div className="h-1 bg-gray-100 dark:bg-gray-700">
           <div className="h-full w-full bg-indigo-600 origin-left transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]" style={{ transform: `scaleX(${(step + 1) / steps.length})` }} />
@@ -1163,9 +1163,10 @@ function TournamentSelect({ tournaments, session, onSelect, onLogout, onCreated 
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {tournaments.map(t => (
+              {tournaments.map((t, i) => (
                 <button key={t.id} onClick={() => onSelect(t)}
-                  className="w-full px-5 py-4 text-left hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition flex items-center gap-4 group">
+                  style={{ "--i": Math.min(i, 12) } as React.CSSProperties}
+                  className="eq-fade-up w-full px-5 py-4 text-left hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition active:scale-[0.99] flex items-center gap-4 group">
                   <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 group-hover:scale-105 transition-transform">
                     {t.logo_path
                       ? <img src={t.logo_path} alt={t.name} className="w-full h-full object-contain bg-indigo-50 dark:bg-indigo-900/30" />
@@ -1277,7 +1278,7 @@ function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEnt
   const nowTop = (nowMinutes - dayStart) * PX_PER_MIN;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm eq-fade-up">
       <div className="flex min-w-max">
         {/* Zeitachse */}
         <div className="w-14 shrink-0 relative" style={{ height: totalHeight + 32 }}>
@@ -1466,6 +1467,16 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
     if (liveRef.current) liveRef.current.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
   }, [liveEntryId, viewMode]);
 
+  // Listen-Entrance nur beim ersten Öffnen abspielen – Tag-/Filterwechsel sollen
+  // snappy sein (kein erneutes Blank-to-visible-Flackern bei jedem Tab-Tipp).
+  // Flag wird erst nach Ende der Animation umgelegt, damit das Entfernen der
+  // Klasse unsichtbar bleibt.
+  const [animateList, setAnimateList] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setAnimateList(false), 900);
+    return () => clearTimeout(t);
+  }, []);
+
   const myTeamId = session?.teamId;
   const globalDelay = delays[0] ?? 0;
   return (
@@ -1627,8 +1638,8 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
             <div
               key={e.id}
               ref={e.id === liveEntryId ? liveRef : undefined}
-              className={`eq-fade-up ${conflictIds.has(e.id) ? "rounded-xl outline-dashed outline-2 outline-amber-500/70 outline-offset-1" : ""}`}
-              style={{ "--i": Math.min(idx, 12) } as React.CSSProperties}
+              className={`${animateList ? "eq-fade-up" : ""} ${conflictIds.has(e.id) ? "rounded-xl outline-dashed outline-2 outline-amber-500/70 outline-offset-1" : ""}`}
+              style={animateList ? ({ "--i": Math.min(idx, 12) } as React.CSSProperties) : undefined}
             >
               <EntryCard entry={e} myTeamId={myTeamId} session={session} />
             </div>
