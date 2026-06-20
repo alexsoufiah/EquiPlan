@@ -2,29 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
+// POST { shift_id, helper_id } — Helfer aus der zentralen Liste zuweisen (kein Freitext)
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (session?.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
-  const { shift_id, worker_name, notes } = await req.json();
-  if (!shift_id || !worker_name) return NextResponse.json({ error: "Fehlende Felder" }, { status: 400 });
+  const { shift_id, helper_id, notes } = await req.json();
+  if (!shift_id || !helper_id) return NextResponse.json({ error: "shift_id und helper_id erforderlich" }, { status: 400 });
 
   const db = getDb();
-  const result = db.prepare(
-    "INSERT INTO shift_assignments (shift_id, worker_name, notes) VALUES (?, ?, ?)"
-  ).run(shift_id, worker_name, notes ?? null);
+  const h = db.prepare("SELECT first_name, last_name FROM helpers WHERE id = ?").get(helper_id) as { first_name: string; last_name: string } | undefined;
+  if (!h) return NextResponse.json({ error: "Helfer nicht gefunden" }, { status: 404 });
+  const worker_name = `${h.first_name} ${h.last_name}`.trim();
 
-  return NextResponse.json({ id: Number(result.lastInsertRowid) }, { status: 201 });
+  // Doppelte Zuweisung desselben Helfers vermeiden
+  const dup = db.prepare("SELECT id FROM shift_assignments WHERE shift_id = ? AND helper_id = ?").get(shift_id, helper_id);
+  if (dup) return NextResponse.json({ error: "Helfer ist dieser Schicht bereits zugewiesen" }, { status: 409 });
+
+  const result = db.prepare(
+    "INSERT INTO shift_assignments (shift_id, helper_id, worker_name, notes) VALUES (?, ?, ?, ?)"
+  ).run(shift_id, helper_id, worker_name, notes ?? null);
+
+  return NextResponse.json({ id: Number(result.lastInsertRowid), worker_name }, { status: 201 });
 }
 
 export async function PUT(req: NextRequest) {
   const session = await getSession();
   if (session?.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
-  const { id, attended, worker_name, notes } = await req.json();
-  getDb().prepare(
-    "UPDATE shift_assignments SET attended=?, worker_name=?, notes=? WHERE id=?"
-  ).run(attended ?? 0, worker_name, notes ?? null, id);
+  const { id, attended, notes } = await req.json();
+  // Nur Anwesenheit/Notiz aktualisieren – der Helfer ist beim Anlegen per Dropdown fix gesetzt
+  getDb().prepare("UPDATE shift_assignments SET attended=?, notes=? WHERE id=?")
+    .run(attended ?? 0, notes ?? null, id);
 
   return NextResponse.json({ ok: true });
 }
