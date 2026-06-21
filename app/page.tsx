@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { LogOut, Settings, Bell, BellOff, RefreshCw, ChevronLeft, ChevronRight, Trophy, ChevronDown, Sun, Moon, Info } from "lucide-react";
+import { Icon } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
 import { useLang } from "@/lib/i18n";
 
@@ -98,9 +99,9 @@ function InstallBanner() {
   return (
     <div className="mt-4 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-indigo-100 text-center">
       {isIOS ? (
-        <>📲 Tippe auf <strong>Teilen</strong> → <strong>„Zum Home-Bildschirm"</strong> um EquiPlan wie eine App zu installieren.</>
+        <><Icon name="install" size={15} className="inline mr-1 -mt-0.5 text-indigo-200" /> Tippe auf <strong>Teilen</strong> → <strong>„Zum Home-Bildschirm"</strong> um EquiPlan wie eine App zu installieren.</>
       ) : (
-        <>📲 Tippe auf das Menü deines Browsers → <strong>„App installieren"</strong> um EquiPlan auf dem Homescreen zu speichern.</>
+        <><Icon name="install" size={15} className="inline mr-1 -mt-0.5 text-indigo-200" /> Tippe auf das Menü deines Browsers → <strong>„App installieren"</strong> um EquiPlan auf dem Homescreen zu speichern.</>
       )}
     </div>
   );
@@ -259,7 +260,9 @@ function ContactForm({ onBack }: { onBack: () => void }) {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-7">
         {status === "done" ? (
           <div className="text-center py-4 space-y-3">
-            <div className="text-5xl">✅</div>
+            <div className="mx-auto grid place-items-center w-16 h-16 rounded-full bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400 eq-pop">
+              <Icon name="check" size={32} strokeWidth={2.5} className="eq-draw" />
+            </div>
             <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg">Nachricht gesendet!</h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm">Wir melden uns so schnell wie möglich bei dir.</p>
             <button onClick={onBack} className="mt-2 text-indigo-600 dark:text-indigo-400 text-sm hover:underline">Zurück zur Startseite</button>
@@ -326,7 +329,11 @@ function OnboardingOverlay({ session, onDone }: { session: AppSession; onDone: (
         </div>
 
         <div className="p-6">
-          <div className="text-4xl mb-3 text-center">{s.icon}</div>
+          <div className="mb-4 flex justify-center">
+            <div key={step} className="grid place-items-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-500/15 dark:to-violet-500/15 text-indigo-600 dark:text-indigo-300 ring-1 ring-indigo-100 dark:ring-white/10 eq-pop">
+              {s.icon}
+            </div>
+          </div>
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 text-center">{s.title}</h3>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-2 text-center leading-relaxed">{s.body}</p>
 
@@ -347,8 +354,8 @@ function OnboardingOverlay({ session, onDone }: { session: AppSession; onDone: (
                 Zurück
               </button>
             )}
-            <button onClick={next} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">
-              {isLast ? "Los geht's! 🎉" : "Weiter →"}
+            <button onClick={next} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition active:scale-95 inline-flex items-center gap-1.5">
+              {isLast ? <>Los geht&apos;s! <Icon name="sparkles" size={15} /></> : "Weiter →"}
             </button>
           </div>
         </div>
@@ -367,13 +374,13 @@ function OnboardingOverlay({ session, onDone }: { session: AppSession; onDone: (
 function getOnboardingSteps(session: AppSession) {
   const base = [
     {
-      icon: "👋",
+      icon: <Icon name="hand" size={30} className="eq-wave" />,
       title: `Willkommen bei EquiPlan${session.teamName ? `, ${session.teamName}` : session.speakerName ? `, ${session.speakerName}` : ""}!`,
       body: "EquiPlan ist dein internes Tool für die Turnierplanung. Hier siehst du den gesamten Tagesablauf auf einen Blick.",
       visual: null,
     },
     {
-      icon: "📅",
+      icon: <Icon name="calendar" size={28} />,
       title: "Tage wechseln",
       body: "Mit den Pfeilen ◀ ▶ blätterst du zwischen den Tagen. Mit \"Heute\" springst du direkt auf den aktuellen Tag. Du kannst auch das Datum direkt anklicken.",
       visual: (
@@ -385,14 +392,14 @@ function getOnboardingSteps(session: AppSession) {
       ),
     },
     {
-      icon: "🏟️",
+      icon: <Icon name="arena" size={28} />,
       title: "Plätze & Phasen",
-      body: "Jeder Eintrag hat einen Platz und eine Phase. Farben helfen dir schnell zu sehen was läuft: 🟠 Aufbau · 🔵 Wettkampf · 🟣 Abbau",
+      body: "Jeder Eintrag hat einen Platz und eine Phase. Die Farben verraten dir auf einen Blick, was gerade läuft – die Legende zeigt, welche Farbe welche Phase ist.",
       visual: (
         <div className="space-y-1.5 text-xs">
-          {[["🟠","Aufbau","border-orange-300 bg-orange-50"],["🔵","Wettkampf","border-blue-300 bg-blue-50"],["🟣","Abbau","border-purple-300 bg-purple-50"]].map(([e,l,c]) => (
-            <div key={l} className={`flex items-center gap-2 rounded px-2 py-1 border-l-4 ${c}`}>
-              <span>{e}</span><span className="font-medium text-gray-700">{l}</span>
+          {[["text-orange-500","Aufbau","border-orange-200 bg-orange-50 dark:bg-orange-500/10 dark:border-orange-500/20"],["text-blue-500","Wettkampf","border-blue-200 bg-blue-50 dark:bg-blue-500/10 dark:border-blue-500/20"],["text-purple-500","Abbau","border-purple-200 bg-purple-50 dark:bg-purple-500/10 dark:border-purple-500/20"]].map(([dot,l,c]) => (
+            <div key={l} className={`flex items-center gap-2 rounded-md px-2 py-1.5 border ${c}`}>
+              <Icon name="dot" size={12} className={dot} /><span className="font-medium text-gray-700 dark:text-gray-200">{l}</span>
             </div>
           ))}
         </div>
@@ -400,9 +407,9 @@ function getOnboardingSteps(session: AppSession) {
     },
     ...getRoleSteps(session),
     {
-      icon: "🔔",
+      icon: <Icon name="bell" size={28} className="eq-ring" />,
       title: "Benachrichtigungen",
-      body: "Aktiviere Push-Benachrichtigungen mit dem 🔔-Symbol oben rechts. Du wirst sofort informiert wenn der Plan geändert wird.",
+      body: "Aktiviere Push-Benachrichtigungen mit dem Glocken-Symbol oben rechts. Du wirst sofort informiert wenn der Plan geändert wird.",
       visual: null,
     },
   ];
@@ -412,15 +419,15 @@ function getOnboardingSteps(session: AppSession) {
 function getRoleSteps(session: AppSession) {
   if (session.role === "admin") {
     return [{
-      icon: "⚙️",
+      icon: <Icon name="settings" size={28} className="eq-spin-hover" />,
       title: "Du bist Administrator",
-      body: "Mit dem ⚙️-Button oben rechts öffnest du den Admin-Bereich. Dort kannst du Einträge anlegen, bearbeiten, Teams und Sprecher verwalten und Share-Links erstellen.",
+      body: "Mit dem Zahnrad-Button oben rechts öffnest du den Admin-Bereich. Dort kannst du Einträge anlegen, bearbeiten, Teams und Sprecher verwalten und Share-Links erstellen.",
       visual: null,
     }];
   }
   if (session.role === "team") {
     return [{
-      icon: "👥",
+      icon: <Icon name="users" size={28} />,
       title: `Deine Einsätze als ${session.teamName}`,
       body: "Alle Einträge wo dein Team eingeteilt ist, werden lila hervorgehoben mit dem Badge \"Ihr Einsatz\". So siehst du auf einen Blick wann du gefragt bist.",
       visual: (
@@ -436,13 +443,13 @@ function getRoleSteps(session: AppSession) {
   }
   if (session.role === "speaker") {
     return [{
-      icon: "🎙️",
+      icon: <Icon name="mic" size={28} />,
       title: `Du bist eingeloggt als ${session.speakerName}`,
       body: "Alle Einträge wo du als Sprecher eingeteilt bist, werden farbig hervorgehoben. Dein Name erscheint auch im Header damit alle wissen wer eingeloggt ist.",
       visual: (
         <div className="flex items-center gap-2 text-xs">
-          <span className="rounded-full px-2 py-1 text-white font-medium" style={{ backgroundColor: session.speakerColor || "#6366f1" }}>
-            🎙 {session.speakerName} · {session.speakerRole}
+          <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-white font-medium" style={{ backgroundColor: session.speakerColor || "#6366f1" }}>
+            <Icon name="mic" size={13} /> {session.speakerName} · {session.speakerRole}
           </span>
           <span className="text-gray-500 dark:text-gray-400">= deine Einträge</span>
         </div>
@@ -450,7 +457,7 @@ function getRoleSteps(session: AppSession) {
     }];
   }
   return [{
-    icon: "👁️",
+    icon: <Icon name="eye" size={28} />,
     title: "Viewer-Zugang",
     body: "Du kannst den gesamten Zeitplan einsehen und zwischen Tagen navigieren. Änderungen sind nur für Administratoren möglich.",
     visual: null,
@@ -529,7 +536,7 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
   // Kennzeichnung der Verspätung (einzeln = orange „nur dieser", sonst rot)
   const delayBadge = delayMin > 0 ? (
     <span className={`ml-1 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold align-middle ${singleEvent ? "bg-amber-500 text-white" : "bg-red-600 text-white"}`}>
-      ⏱ +{delayMin}′{singleEvent ? " · nur dieser" : ""}
+      <Icon name="clock" size={12} className="shrink-0" /> +{delayMin}′{singleEvent ? " · nur dieser" : ""}
     </span>
   ) : null;
 
@@ -561,8 +568,8 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
             {timeDisplay("text-sm font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap")}
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-gray-400 dark:text-gray-500">
-            {entry.arena_name && <span className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
-            {entry.teams?.map(t => <span key={t.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">👥 {t.name}</span>)}
+            {entry.arena_name && <span className="inline-flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5"><Icon name="mapPin" size={12} className="shrink-0" /> {entry.arena_name}</span>}
+            {entry.teams?.map(t => <span key={t.id} className="inline-flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5"><Icon name="users" size={12} className="shrink-0" /> {t.name}</span>)}
           </div>
         </div>
       ) : isMyTeam ? (
@@ -581,15 +588,15 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
             {timeDisplay("text-sm font-mono font-bold text-violet-700 dark:text-violet-400 whitespace-nowrap")}
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
-            {entry.arena_name && <span className="bg-white dark:bg-gray-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded px-2 py-0.5 text-violet-700">📍 {entry.arena_name}</span>}
+            {entry.arena_name && <span className="inline-flex items-center gap-1 bg-white dark:bg-gray-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded px-2 py-0.5 text-violet-700"><Icon name="mapPin" size={12} className="shrink-0" /> {entry.arena_name}</span>}
             {entry.teams?.map(t => (
-              <span key={t.id} className={`rounded px-2 py-0.5 border ${t.id === myTeamId ? "bg-violet-600 text-white border-violet-600 font-semibold" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200"}`}>
-                👥 {t.name}
+              <span key={t.id} className={`inline-flex items-center gap-1 rounded px-2 py-0.5 border ${t.id === myTeamId ? "bg-violet-600 text-white border-violet-600 font-semibold" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200"}`}>
+                <Icon name="users" size={12} className="shrink-0" /> {t.name}
               </span>
             ))}
             {entry.speaker_name && (
-              <span className="rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
-                🎙 {entry.speaker_name}{entry.speaker_role ? ` (${entry.speaker_role})` : ""}
+              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
+                <Icon name="mic" size={12} className="shrink-0" /> {entry.speaker_name}{entry.speaker_role ? ` (${entry.speaker_role})` : ""}
               </span>
             )}
           </div>
@@ -610,19 +617,19 @@ function EntryCard({ entry, myTeamId, session }: { entry: ScheduleEntry; myTeamI
             {timeDisplay("text-sm font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap", txtColor ? { color: txtColor } : undefined)}
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-gray-600 dark:text-gray-300">
-            {entry.arena_name && <span className="bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">📍 {entry.arena_name}</span>}
-            {entry.teams?.map(t => <span key={t.id} className="bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5">👥 {t.name}</span>)}
+            {entry.arena_name && <span className="inline-flex items-center gap-1 bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5"><Icon name="mapPin" size={12} className="shrink-0" /> {entry.arena_name}</span>}
+            {entry.teams?.map(t => <span key={t.id} className="inline-flex items-center gap-1 bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5"><Icon name="users" size={12} className="shrink-0" /> {t.name}</span>)}
             {entry.speaker_name && (
-              <span className="rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
-                🎙 {entry.speaker_name}{entry.speaker_role ? ` (${entry.speaker_role})` : ""}
+              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-white text-xs" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
+                <Icon name="mic" size={12} className="shrink-0" /> {entry.speaker_name}{entry.speaker_role ? ` (${entry.speaker_role})` : ""}
               </span>
             )}
           </div>
           {entry.external_source && <span className="text-xs bg-gray-100 dark:bg-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5 text-gray-400">via {entry.external_source}</span>}
           {entry.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic" style={txtColor ? { color: txtColor, opacity: 0.85 } : undefined}>{entry.notes}</p>}
           {(entry.helpers_needed ?? 0) > 0 && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 w-fit mt-1">
-              🙋 {entry.helpers_needed} Helfer gesucht{entry.helpers_task ? ` · ${entry.helpers_task}` : ""}
+            <p className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded px-2 py-0.5 w-fit mt-1">
+              <Icon name="hand" size={12} className="shrink-0" /> {entry.helpers_needed} Helfer gesucht{entry.helpers_task ? ` · ${entry.helpers_task}` : ""}
             </p>
           )}
         </div>
@@ -655,10 +662,12 @@ function PdfFullscreen({ doc, onClose }: { doc: DocMeta; onClose: () => void }) 
           <p className="font-medium text-sm text-gray-800 dark:text-gray-100 truncate flex-1">{doc.original_name}</p>
           <div className="flex items-center gap-3 shrink-0 ml-3">
             <a href={`/api/documents/${doc.id}`} download={doc.original_name}
-              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline border border-indigo-200 dark:border-indigo-700 px-3 py-1 rounded-lg transition">
-              ⬇ Download
+              className="inline-flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:underline border border-indigo-200 dark:border-indigo-700 px-3 py-1 rounded-lg transition active:scale-95">
+              <Icon name="download" size={14} /> Download
             </a>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none transition">✕</button>
+            <button onClick={onClose} aria-label="Schließen" className="grid place-items-center w-9 h-9 -mr-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90">
+              <Icon name="x" size={20} />
+            </button>
           </div>
         </div>
         <iframe src={`/api/documents/${doc.id}`} className="flex-1 w-full rounded-b-2xl" title={doc.original_name} />
@@ -748,7 +757,9 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
                 {entry.title}
               </h2>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none shrink-0">✕</button>
+            <button onClick={onClose} aria-label="Schließen" className="grid place-items-center w-9 h-9 -mr-1 rounded-lg shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90">
+              <Icon name="x" size={20} />
+            </button>
           </div>
           <p className="text-sm font-mono text-gray-600 dark:text-gray-400 mt-1">{entry.start_time} – {entry.end_time}</p>
         </div>
@@ -756,11 +767,11 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
         {/* Details */}
         <div className="p-4 space-y-3">
           <div className="flex flex-wrap gap-2 text-sm">
-            {entry.arena_name && <span className="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1">📍 {entry.arena_name}</span>}
-            {entry.teams?.map(t => <span key={t.id} className="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1">👥 {t.name}</span>)}
+            {entry.arena_name && <span className="inline-flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1"><Icon name="mapPin" size={14} className="shrink-0" /> {entry.arena_name}</span>}
+            {entry.teams?.map(t => <span key={t.id} className="inline-flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1"><Icon name="users" size={14} className="shrink-0" /> {t.name}</span>)}
             {entry.speaker_name && (
-              <span className="rounded-lg px-3 py-1 text-white text-sm" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
-                🎙 {entry.speaker_name} {entry.speaker_role && `(${entry.speaker_role})`}
+              <span className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-white text-sm" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
+                <Icon name="mic" size={14} className="shrink-0" /> {entry.speaker_name} {entry.speaker_role && `(${entry.speaker_role})`}
               </span>
             )}
           </div>
@@ -771,7 +782,7 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
           {session?.role === "admin" && (
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">⏱ Verspätung – nur dieser Programmpunkt</h3>
+                <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-300"><Icon name="clock" size={15} className="shrink-0" /> Verspätung – nur dieser Programmpunkt</h3>
                 <span className={`text-sm font-mono ${entryDelay ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-400"}`}>
                   {entryDelay ? `+${entryDelay} Min` : "pünktlich"}
                 </span>
@@ -819,7 +830,7 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
                 </div>
                 <span className="text-xs text-gray-400 shrink-0">{new Date(h.signed_up_at).toLocaleDateString("de-DE")}</span>
                 {session?.role === "admin" && (
-                  <button onClick={() => removeHelper(h.id)} className="text-xs text-red-500 hover:underline shrink-0">✕</button>
+                  <button onClick={() => removeHelper(h.id)} aria-label="Helfer entfernen" className="grid place-items-center w-7 h-7 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 shrink-0 transition active:scale-90"><Icon name="x" size={15} /></button>
                 )}
               </div>
             ))}
@@ -831,8 +842,8 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Dokumente</h3>
 
           {docs.map(doc => (
-            <div key={doc.id} className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-2 p-3">
-              <span className="text-lg shrink-0">📄</span>
+            <div key={doc.id} className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-2.5 p-3">
+              <Icon name="file" size={20} className="shrink-0 text-indigo-500 dark:text-indigo-400" />
               <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{doc.original_name}</span>
               <button onClick={() => setFullscreenDoc(doc)}
                 className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition shrink-0">
@@ -847,8 +858,8 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
           {docs.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">Keine Dokumente hinterlegt.</p>}
 
           {session?.role === "admin" && (
-            <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition ${uploading ? "bg-gray-300 text-gray-500" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
-              {uploading ? "Hochladen…" : "📄 PDF hinzufügen"}
+            <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition active:scale-95 ${uploading ? "bg-gray-300 text-gray-500" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
+              {uploading ? "Hochladen…" : <><Icon name="file" size={16} /> PDF hinzufügen</>}
               <input type="file" accept="application/pdf" className="hidden" disabled={uploading} onChange={upload} />
             </label>
           )}
@@ -1071,15 +1082,15 @@ export default function App() {
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {session?.role === "admin" && session.adminName && (
-              <span className="text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:block">
-                {session.adminTournamentId ? "🎪" : "⭐"} {session.adminName}
+              <span className="inline-flex items-center gap-1 text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:flex">
+                <Icon name={session.adminTournamentId ? "tent" : "star"} size={12} className="shrink-0" /> {session.adminName}
               </span>
             )}
-            {session?.role === "team" && <span className="text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:block">👥 {session.teamName}</span>}
-            {session?.role === "helper" && <span className="text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:block">🙋 {session.helperName}</span>}
+            {session?.role === "team" && <span className="inline-flex items-center gap-1 text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:flex"><Icon name="users" size={12} className="shrink-0" /> {session.teamName}</span>}
+            {session?.role === "helper" && <span className="inline-flex items-center gap-1 text-xs bg-white/10 text-indigo-100 px-2 py-0.5 rounded-full mr-1 hidden sm:flex"><Icon name="hand" size={12} className="shrink-0" /> {session.helperName}</span>}
             {session?.role === "speaker" && (
-              <span className="text-xs px-2 py-0.5 rounded-full mr-1 hidden sm:block font-medium text-white" style={{ backgroundColor: session.speakerColor || "#6366f1" }}>
-                🎙 {session.speakerName} · {session.speakerRole}
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mr-1 hidden sm:flex font-medium text-white" style={{ backgroundColor: session.speakerColor || "#6366f1" }}>
+                <Icon name="mic" size={12} className="shrink-0" /> {session.speakerName} · {session.speakerRole}
               </span>
             )}
             <button onClick={togglePush} className="p-2 rounded-lg hover:bg-indigo-700 transition" title={pushEnabled ? "Benachrichtigungen aktiv" : "Benachrichtigungen aktivieren"} aria-label={pushEnabled ? "Benachrichtigungen aktiv" : "Benachrichtigungen aktivieren"}>
@@ -1112,7 +1123,7 @@ export default function App() {
         <div className="bg-black/20 px-4 py-1.5 flex items-center gap-3 text-xs text-indigo-100">
           <Trophy size={12} className="shrink-0" />
           <span className="font-semibold">{activeTournament.name}</span>
-          {activeTournament.location && <span className="text-indigo-300">📍 {activeTournament.location}</span>}
+          {activeTournament.location && <span className="inline-flex items-center gap-1 text-indigo-300"><Icon name="mapPin" size={11} className="shrink-0" /> {activeTournament.location}</span>}
           {activeTournament.start_date && (
             <span className="text-indigo-300">
               {activeTournament.start_date}{activeTournament.end_date && activeTournament.end_date !== activeTournament.start_date ? ` – ${activeTournament.end_date}` : ""}
@@ -1197,8 +1208,8 @@ function TournamentSelect({ tournaments, session, onSelect, onLogout, onCreated 
           {session.role === "admin" && (
             <div className="border-t border-gray-100 dark:border-gray-700 p-4">
               {!showNew ? (
-                <button onClick={() => setShowNew(true)} className="w-full py-2.5 rounded-lg border-2 border-dashed border-indigo-200 text-indigo-500 text-sm hover:border-indigo-400 hover:text-indigo-700 transition font-medium">
-                  + Neues Turnier erstellen
+                <button onClick={() => setShowNew(true)} className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg border-2 border-dashed border-indigo-200 dark:border-indigo-700 text-indigo-500 dark:text-indigo-300 text-sm hover:border-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 transition font-medium active:scale-[0.99]">
+                  <Icon name="plus" size={16} /> Neues Turnier erstellen
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -1212,7 +1223,7 @@ function TournamentSelect({ tournaments, session, onSelect, onLogout, onCreated 
                     <button onClick={create} disabled={saving || !form.name.trim()} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
                       {saving ? "..." : "Erstellen & öffnen"}
                     </button>
-                    <button onClick={() => setShowNew(false)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">✕</button>
+                    <button onClick={() => setShowNew(false)} aria-label="Abbrechen" className="grid place-items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition active:scale-90"><Icon name="x" size={16} /></button>
                   </div>
                 </div>
               )}
@@ -1311,7 +1322,7 @@ function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEnt
             <div key={String(arena.id)} className="flex-1 min-w-[180px] border-l border-gray-200 dark:border-gray-700">
               {/* Spalten-Header */}
               <div className="h-8 flex items-center justify-center border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/20 px-2">
-                <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 truncate text-center">📍 {arena.name}</span>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300 truncate text-center"><Icon name="mapPin" size={12} className="shrink-0" /> {arena.name}</span>
               </div>
               {/* Inhalt */}
               <div className="relative" style={{ height: totalHeight }}>
@@ -1359,14 +1370,14 @@ function TimelineView({ entries, selectedDate, session }: { entries: ScheduleEnt
                         <div className="font-mono opacity-70" style={{ fontSize: "9px" }}>{entry.start_time}–{entry.end_time}</div>
                       )}
                       {height >= 52 && entry.teams && entry.teams.length > 0 && (
-                        <div className="truncate opacity-70" style={{ fontSize: "9px" }}>
-                          👥 {entry.teams.map(t => t.name).join(", ")}
+                        <div className="flex items-center gap-1 truncate opacity-70" style={{ fontSize: "9px" }}>
+                          <Icon name="users" size={9} className="shrink-0" /> <span className="truncate">{entry.teams.map(t => t.name).join(", ")}</span>
                         </div>
                       )}
                       {height >= 64 && entry.speaker_name && (
                         <div className="truncate" style={{ fontSize: "9px" }}>
-                          <span className="rounded px-1 text-white" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
-                            🎙 {entry.speaker_name}
+                          <span className="inline-flex items-center gap-1 rounded px-1 text-white" style={{ backgroundColor: entry.speaker_color || "#6B7280" }}>
+                            <Icon name="mic" size={9} className="shrink-0" /> {entry.speaker_name}
                           </span>
                         </div>
                       )}
@@ -1516,7 +1527,7 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
                 </div>
                 <div className={`text-[10px] leading-none mt-0.5 ${active ? "text-indigo-100" : "text-gray-400 dark:text-gray-500"}`}>
                   {dd.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
-                  {isToday && <span className={`ml-1 ${active ? "text-white" : "text-red-500"}`}>● heute</span>}
+                  {isToday && <span className={`inline-flex items-center gap-0.5 ml-1 ${active ? "text-white" : "text-red-500"}`}><Icon name="dot" size={7} className="shrink-0" /> heute</span>}
                 </div>
               </button>
             );
@@ -1556,28 +1567,28 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
         <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <button
             onClick={() => setViewMode("list")}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "list" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition active:scale-95 ${viewMode === "list" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
           >
-            ≡ Liste
+            <Icon name="list" size={15} /> Liste
           </button>
           <button
             onClick={() => setViewMode("timeline")}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "timeline" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition active:scale-95 ${viewMode === "timeline" ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
           >
-            ▦ Zeitleiste
+            <Icon name="columns" size={15} /> Zeitleiste
           </button>
         </div>
 
         {canFilterOwn && (
           <button
             onClick={() => setShowOnlyMine(v => !v)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition active:scale-95 ${
               showOnlyMine
                 ? "bg-violet-600 text-white border-violet-600"
                 : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
             }`}
           >
-            {showOnlyMine ? "👤 Nur meine Einsätze" : "👥 Alle Einträge"}
+            {showOnlyMine ? <><Icon name="user" size={15} /> Nur meine Einsätze</> : <><Icon name="users" size={15} /> Alle Einträge</>}
           </button>
         )}
 
@@ -1587,7 +1598,7 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
             onChange={e => setArenaFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
             className="px-3 py-1.5 rounded-lg text-sm font-medium border bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700"
           >
-            <option value="all">📍 Alle Plätze</option>
+            <option value="all">Alle Plätze</option>
             {arenasToday.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         )}
@@ -1595,23 +1606,24 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
         {isAdmin && (
           <button
             onClick={() => setShowDelayPanel(v => !v)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition active:scale-95 ${
               globalDelay || Object.keys(delays).length
                 ? "bg-red-600 text-white border-red-600"
                 : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
             }`}
           >
-            ⏱ Verspätung{globalDelay ? ` +${globalDelay}′` : ""}
+            <Icon name="clock" size={15} /> Verspätung{globalDelay ? ` +${globalDelay}′` : ""}
           </button>
         )}
 
         {/* Suche */}
-        <div className="flex-1 min-w-[140px]">
+        <div className="relative flex-1 min-w-[140px]">
+          <Icon name="search" size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="🔍 Suchen (Titel, ID, Platz…)"
-            className="w-full px-3 py-1.5 rounded-lg text-sm border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Suchen (Titel, ID, Platz…)"
+            className="w-full pl-9 pr-3 py-1.5 rounded-lg text-sm border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
       </div>
@@ -1629,17 +1641,17 @@ function ScheduleTab({ entries, selectedDate, setSelectedDate, session, onRefres
 
       {/* Konflikt-Warnung (Admin) */}
       {isAdmin && conflictIds.size > 0 && (
-        <div className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl px-4 py-2.5 text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
-          <span className="text-base">⚠️</span>
+        <div className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl px-4 py-2.5 text-sm text-red-700 dark:text-red-300 flex items-center gap-2 eq-fade-up">
+          <Icon name="alert" size={18} className="shrink-0 text-red-500" />
           <span><strong>{conflictIds.size} Einträge</strong> mit Platz-Überschneidung (gleicher Platz zur gleichen Zeit).</span>
         </div>
       )}
 
       {filteredEntries.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <div className="text-4xl mb-3">📋</div>
+        <div className="text-center py-16 text-gray-400 eq-fade-up">
+          <div className="mx-auto mb-3 grid place-items-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"><Icon name="clipboard" size={30} /></div>
           <p>{showOnlyMine && canFilterOwn ? "Keine eigenen Einsätze für diesen Tag." : "Keine Einträge für diesen Tag."}</p>
-          {session?.role === "admin" && <p className="text-sm mt-1">Im ⚙️ Admin-Bereich Einträge anlegen.</p>}
+          {session?.role === "admin" && <p className="inline-flex items-center gap-1 text-sm mt-1">Im <Icon name="settings" size={14} className="text-gray-400" /> Admin-Bereich Einträge anlegen.</p>}
           {session?.role === "team" && showOnlyMine && <p className="text-sm mt-1 text-violet-600">Heute keine Einsätze für {session.teamName}.</p>}
         </div>
       ) : viewMode === "list" ? (
@@ -1710,7 +1722,7 @@ function DelayPanel({ tournamentId, date, arenas, delays, onChanged }: {
   return (
     <div className="mb-4 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800/60 rounded-xl p-4 space-y-3 shadow-sm">
       <div>
-        <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">⏱ Verspätung anpassen</h3>
+        <h3 className="inline-flex items-center gap-1.5 font-semibold text-gray-800 dark:text-gray-100 text-sm"><Icon name="clock" size={15} className="text-red-500" /> Verspätung anpassen</h3>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Verschiebt die angezeigten Zeiten live für alle. Original bleibt durchgestrichen sichtbar.</p>
       </div>
       {renderRow(0, "Ganzer Tag")}
@@ -1784,24 +1796,24 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
   }
 
   const mainBtnCls = (key: AdminMainTab) =>
-    `px-4 py-2 rounded-xl text-sm font-semibold transition ${main === key ? "bg-indigo-600 text-white shadow" : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"}`;
+    `inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition active:scale-95 ${main === key ? "bg-indigo-600 text-white shadow" : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"}`;
   const subBtnCls = (active: boolean) =>
-    `px-3 py-1.5 rounded-lg text-xs font-medium transition ${active ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"}`;
+    `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition active:scale-95 ${active ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"}`;
 
   return (
     <div className="space-y-4">
       {/* Haupt-Navigation */}
       <div className="flex gap-2">
-        <button className={mainBtnCls("zeitplan")} onClick={() => setMain("zeitplan")}>📅 Zeitplan</button>
-        <button className={mainBtnCls("turnier")} onClick={() => setMain("turnier")}>🏆 Turnier</button>
-        <button className={mainBtnCls("verwaltung")} onClick={() => setMain("verwaltung")}>⚙️ Verwaltung</button>
+        <button className={mainBtnCls("zeitplan")} onClick={() => setMain("zeitplan")}><Icon name="calendar" size={16} /> Zeitplan</button>
+        <button className={mainBtnCls("turnier")} onClick={() => setMain("turnier")}><Icon name="trophy" size={16} /> Turnier</button>
+        <button className={mainBtnCls("verwaltung")} onClick={() => setMain("verwaltung")}><Icon name="settings" size={16} /> Verwaltung</button>
       </div>
 
       {/* Sub-Navigation */}
       {main === "zeitplan" && (
         <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 pb-3">
-          <button className={subBtnCls(zeitplanSub === "entries")} onClick={() => setZeitplanSub("entries")}>Einträge</button>
-          <button className={subBtnCls(zeitplanSub === "shifts")} onClick={() => setZeitplanSub("shifts")}>🕐 Schichten</button>
+          <button className={subBtnCls(zeitplanSub === "entries")} onClick={() => setZeitplanSub("entries")}><Icon name="list" size={14} /> Einträge</button>
+          <button className={subBtnCls(zeitplanSub === "shifts")} onClick={() => setZeitplanSub("shifts")}><Icon name="clock" size={14} /> Schichten</button>
         </div>
       )}
       {main === "turnier" && (
@@ -1809,20 +1821,20 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
           <button className={subBtnCls(turnierSub === "details")} onClick={() => setTurnierSub("details")}>Details & Logo</button>
           <button className={subBtnCls(turnierSub === "organisation")} onClick={() => setTurnierSub("organisation")}>Sprecher · Plätze · Teams</button>
           <button className={subBtnCls(turnierSub === "phasen")} onClick={() => setTurnierSub("phasen")}>Phasen</button>
-          <button className={subBtnCls(turnierSub === "kontakte")} onClick={() => setTurnierSub("kontakte")}>📞 Telefonliste</button>
-          <button className={subBtnCls(turnierSub === "dokumente")} onClick={() => setTurnierSub("dokumente")}>📄 Dokumente</button>
-          <button className={subBtnCls(turnierSub === "share")} onClick={() => setTurnierSub("share")}>🔗 Share-Link</button>
+          <button className={subBtnCls(turnierSub === "kontakte")} onClick={() => setTurnierSub("kontakte")}><Icon name="phone" size={14} /> Telefonliste</button>
+          <button className={subBtnCls(turnierSub === "dokumente")} onClick={() => setTurnierSub("dokumente")}><Icon name="file" size={14} /> Dokumente</button>
+          <button className={subBtnCls(turnierSub === "share")} onClick={() => setTurnierSub("share")}><Icon name="link" size={14} /> Share-Link</button>
         </div>
       )}
       {main === "verwaltung" && (
         <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 pb-3 flex-wrap">
-          <button className={subBtnCls(verwaltungSub === "helpers")} onClick={() => setVerwaltungSub("helpers")}>🙋 Helfer</button>
-          <button className={subBtnCls(verwaltungSub === "notifications")} onClick={() => setVerwaltungSub("notifications")}>📨 Benachrichtigungen</button>
+          <button className={subBtnCls(verwaltungSub === "helpers")} onClick={() => setVerwaltungSub("helpers")}><Icon name="hand" size={14} /> Helfer</button>
+          <button className={subBtnCls(verwaltungSub === "notifications")} onClick={() => setVerwaltungSub("notifications")}><Icon name="send" size={14} /> Benachrichtigungen</button>
           {isSuperAdmin && <>
-            <button className={subBtnCls(verwaltungSub === "settings")} onClick={() => setVerwaltungSub("settings")}>Passwörter</button>
-            <button className={subBtnCls(verwaltungSub === "api")} onClick={() => setVerwaltungSub("api")}>API-Zugang</button>
-            <button className={subBtnCls(verwaltungSub === "inquiries")} onClick={() => setVerwaltungSub("inquiries")}>Anfragen</button>
-            <button className={subBtnCls(verwaltungSub === "admins")} onClick={() => setVerwaltungSub("admins")}>👥 Admins</button>
+            <button className={subBtnCls(verwaltungSub === "settings")} onClick={() => setVerwaltungSub("settings")}><Icon name="lock" size={14} /> Passwörter</button>
+            <button className={subBtnCls(verwaltungSub === "api")} onClick={() => setVerwaltungSub("api")}><Icon name="key" size={14} /> API-Zugang</button>
+            <button className={subBtnCls(verwaltungSub === "inquiries")} onClick={() => setVerwaltungSub("inquiries")}><Icon name="inbox" size={14} /> Anfragen</button>
+            <button className={subBtnCls(verwaltungSub === "admins")} onClick={() => setVerwaltungSub("admins")}><Icon name="users" size={14} /> Admins</button>
           </>}
         </div>
       )}
@@ -1834,8 +1846,8 @@ function AdminTab({ onRefresh, activeTournamentId, session }: { onRefresh: () =>
             <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
               className="border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-auto" />
             <button onClick={() => { setEditEntry({ date: selectedDate, phase: "wettkampf", tournament_id: activeTournamentId }); setShowForm(true); }}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
-              + Neuer Eintrag
+              className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition active:scale-95">
+              <Icon name="plus" size={16} /> Neuer Eintrag
             </button>
           </div>
           {entries.map(e => (
@@ -1908,7 +1920,7 @@ function EntryForm({ entry, speakers, arenas, teams, onSave, onClose }: {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
           <h3 className="font-bold text-gray-800 dark:text-gray-100">{form.id ? "Eintrag bearbeiten" : "Neuer Eintrag"}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">✕</button>
+          <button onClick={onClose} aria-label="Schließen" className="grid place-items-center w-9 h-9 -mr-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90"><Icon name="x" size={20} /></button>
         </div>
         <div className="p-5 space-y-3">
           <Field label="Datum"><input type="date" value={form.date ?? ""} onChange={e => set("date", e.target.value)} className={inputClass} /></Field>
@@ -1940,8 +1952,8 @@ function EntryForm({ entry, speakers, arenas, teams, onSave, onClose }: {
                 const active = selectedTeamIds.includes(t.id);
                 return (
                   <button key={t.id} type="button" onClick={() => toggleTeam(t.id)}
-                    className={`px-3 py-1.5 rounded-lg text-sm border transition ${active ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:border-indigo-400"}`}>
-                    {active ? "✓ " : ""}{t.name}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition active:scale-95 ${active ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:border-indigo-400"}`}>
+                    {active && <Icon name="check" size={14} className="eq-draw" />}{t.name}
                   </button>
                 );
               })}
@@ -2033,7 +2045,7 @@ function SpeakersTab({ speakers, onRefresh }: { speakers: Speaker[]; onRefresh: 
     <div className="space-y-3">
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-gray-700 dark:text-gray-200">Sprecher ({speakers.length})</h3>
-        <button onClick={() => { setEdit({ color: "#3B82F6" }); setNewPassword(""); }} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Hinzufügen</button>
+        <button onClick={() => { setEdit({ color: "#3B82F6" }); setNewPassword(""); }} className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 transition active:scale-95"><Icon name="plus" size={15} /> Hinzufügen</button>
       </div>
       {speakers.map(s => (
         <div key={s.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3">
@@ -2044,8 +2056,8 @@ function SpeakersTab({ speakers, onRefresh }: { speakers: Speaker[]; onRefresh: 
           </div>
           <div className="flex items-center gap-2">
             {s.has_password
-              ? <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">🔒 Login aktiv</span>
-              : <span className="text-xs bg-gray-50 text-gray-400 border border-gray-200 px-2 py-0.5 rounded-full">Kein Login</span>
+              ? <span className="inline-flex items-center gap-1 text-xs bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/20 px-2 py-0.5 rounded-full"><Icon name="lock" size={12} className="shrink-0" /> Login aktiv</span>
+              : <span className="text-xs bg-gray-50 dark:bg-gray-800 text-gray-400 border border-gray-200 dark:border-gray-700 px-2 py-0.5 rounded-full">Kein Login</span>
             }
             <button onClick={() => { setEdit({ ...s }); setNewPassword(""); }} className="text-xs text-blue-600 hover:underline">Bearbeiten</button>
             <button onClick={() => del(s.id)} className="text-xs text-red-500 hover:underline">Löschen</button>
@@ -2093,12 +2105,12 @@ function ArenasTab({ arenas, onRefresh }: { arenas: Arena[]; onRefresh: () => vo
     <div className="space-y-3">
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-gray-700 dark:text-gray-200">Veranstaltungsplätze</h3>
-        <button onClick={() => setEdit({})} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Hinzufügen</button>
+        <button onClick={() => setEdit({})} className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 transition active:scale-95"><Icon name="plus" size={15} /> Hinzufügen</button>
       </div>
       {arenas.map(a => (
         <div key={a.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3">
           <div className="flex-1">
-            <p className="font-medium text-gray-800 dark:text-gray-100">📍 {a.name}</p>
+            <p className="inline-flex items-center gap-1.5 font-medium text-gray-800 dark:text-gray-100"><Icon name="mapPin" size={15} className="shrink-0 text-indigo-500 dark:text-indigo-400" /> {a.name}</p>
             {a.description && <p className="text-xs text-gray-500">{a.description}</p>}
           </div>
           <button onClick={() => setEdit({ ...a })} className="text-xs text-blue-600 hover:underline mr-2">Bearbeiten</button>
@@ -2170,15 +2182,15 @@ function TeamsTab({ teams, onRefresh }: { teams: Team[]; onRefresh: () => void }
     <div className="space-y-3">
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-gray-700 dark:text-gray-200">Einsatzgruppen / Teams</h3>
-        <button onClick={() => openEdit({})} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Hinzufügen</button>
+        <button onClick={() => openEdit({})} className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 transition active:scale-95"><Icon name="plus" size={15} /> Hinzufügen</button>
       </div>
       {allHelpers.length === 0 && <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Noch keine Helfer angelegt – Mitglieder/Verantwortliche kannst du erst nach dem Anlegen von Helfern (Verwaltung → Helfer) zuordnen.</p>}
       {teams.map(t => (
         <div key={t.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex items-center gap-3">
           <div className="flex-1">
-            <p className="font-medium text-gray-800 dark:text-gray-100">👥 {t.name}</p>
+            <p className="inline-flex items-center gap-1.5 font-medium text-gray-800 dark:text-gray-100"><Icon name="users" size={15} className="shrink-0 text-indigo-500 dark:text-indigo-400" /> {t.name}</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              {t.has_password ? <span className="text-green-600">✓ Team-Login</span> : <span className="text-gray-400">Kein Team-Login</span>}
+              {t.has_password ? <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400"><Icon name="check" size={12} className="shrink-0" /> Team-Login</span> : <span className="text-gray-400">Kein Team-Login</span>}
             </p>
           </div>
           <button onClick={() => openEdit(t)} className="text-xs text-blue-600 hover:underline mr-2">Bearbeiten</button>
@@ -2206,7 +2218,7 @@ function TeamsTab({ teams, onRefresh }: { teams: Team[]; onRefresh: () => void }
           {/* Mitglieder (Mehrfachauswahl) */}
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Mitglieder ({memberIds.length} ausgewählt)</label>
-            {allHelpers.length > 8 && <input value={memberSearch} onChange={e => setMemberSearch(e.target.value)} placeholder="🔍 Helfer suchen…" className={`${inputClass} mb-2`} />}
+            {allHelpers.length > 8 && <input value={memberSearch} onChange={e => setMemberSearch(e.target.value)} placeholder="Helfer suchen…" className={`${inputClass} mb-2`} />}
             <div className="max-h-52 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
               {visibleHelpers.length === 0 && <p className="text-sm text-gray-400 p-3">Keine Helfer.</p>}
               {visibleHelpers.map(h => (
@@ -2286,8 +2298,8 @@ function ApiKeySettings() {
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Aktiver API-Key</label>
               <div className="flex gap-2">
                 <code className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-700 break-all">{apiKey}</code>
-                <button onClick={() => copy(apiKey)} className="shrink-0 text-xs bg-gray-100 border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-200">
-                  {copied ? "✓" : "Kopieren"}
+                <button onClick={() => copy(apiKey)} className="inline-flex items-center gap-1 shrink-0 text-xs bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 dark:text-gray-200 px-3 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition active:scale-95">
+                  {copied ? <><Icon name="check" size={13} className="text-green-600 dark:text-green-400" /> Kopiert</> : "Kopieren"}
                 </button>
               </div>
             </div>
@@ -2335,13 +2347,13 @@ function ApiKeySettings() {
 
 function OrganisationTab({ speakers, arenas, teams, onRefresh }: { speakers: Speaker[]; arenas: Arena[]; teams: Team[]; onRefresh: () => void }) {
   const [sub, setSub] = useState<"speakers" | "arenas" | "teams">("speakers");
-  const s = (key: typeof sub) => `px-3 py-1.5 rounded-lg text-sm font-medium transition ${sub === key ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"}`;
+  const s = (key: typeof sub) => `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition active:scale-95 ${sub === key ? "bg-indigo-600 text-white" : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"}`;
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        <button className={s("speakers")} onClick={() => setSub("speakers")}>🎙 Sprecher</button>
-        <button className={s("arenas")} onClick={() => setSub("arenas")}>📍 Plätze</button>
-        <button className={s("teams")} onClick={() => setSub("teams")}>👥 Teams</button>
+        <button className={s("speakers")} onClick={() => setSub("speakers")}><Icon name="mic" size={15} /> Sprecher</button>
+        <button className={s("arenas")} onClick={() => setSub("arenas")}><Icon name="mapPin" size={15} /> Plätze</button>
+        <button className={s("teams")} onClick={() => setSub("teams")}><Icon name="users" size={15} /> Teams</button>
       </div>
       {sub === "speakers" && <SpeakersTab speakers={speakers} onRefresh={onRefresh} />}
       {sub === "arenas" && <ArenasTab arenas={arenas} onRefresh={onRefresh} />}
@@ -2383,10 +2395,10 @@ function ContactsTab({ tournamentId }: { tournamentId?: number }) {
     <div className="space-y-3">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="font-semibold text-gray-700 dark:text-gray-200">📞 Telefonliste</h3>
+          <h3 className="inline-flex items-center gap-1.5 font-semibold text-gray-700 dark:text-gray-200"><Icon name="phone" size={16} className="text-indigo-500 dark:text-indigo-400" /> Telefonliste</h3>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Sichtbar für alle eingeloggten Nutzer dieses Turniers.</p>
         </div>
-        <button onClick={() => setEdit({})} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 shrink-0">+ Hinzufügen</button>
+        <button onClick={() => setEdit({})} className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 shrink-0 transition active:scale-95"><Icon name="plus" size={15} /> Hinzufügen</button>
       </div>
 
       {contacts.length === 0 && <p className="text-sm text-gray-400">Noch keine Kontakte angelegt.</p>}
@@ -2495,7 +2507,7 @@ function PhasesTab() {
                         style={{ backgroundColor: c.value }} title={c.label} />
                     ))}
                   </div>
-                  <button onClick={() => setEditingPhase(null)} className="text-xs text-gray-400 hover:text-gray-600 px-1">✕</button>
+                  <button onClick={() => setEditingPhase(null)} aria-label="Abbrechen" className="grid place-items-center w-6 h-6 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90"><Icon name="x" size={14} /></button>
                 </div>
               ) : (
                 <button onClick={() => setEditingPhase(key)} className="text-xs text-indigo-500 hover:text-indigo-700 px-2 py-0.5 rounded hover:bg-indigo-50 dark:hover:bg-indigo-900/30">Farbe</button>
@@ -2515,7 +2527,7 @@ function PhasesTab() {
               <span className="w-4 h-4 rounded-full shrink-0 border border-gray-200" style={{ backgroundColor: p.color }} />
               <span className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{p.label}</span>
               <span className="text-xs text-gray-400 font-mono">{p.key}</span>
-              <button onClick={() => remove(p.id)} className="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 rounded hover:bg-red-50">✕</button>
+              <button onClick={() => remove(p.id)} aria-label="Phase löschen" className="grid place-items-center w-7 h-7 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition active:scale-90"><Icon name="x" size={15} /></button>
             </div>
           ))}
         </div>
@@ -2530,8 +2542,8 @@ function PhasesTab() {
             ))}
           </div>
           <button onClick={add} disabled={saving || !newLabel.trim()}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-            {saving ? "..." : "+ Phase hinzufügen"}
+            className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition active:scale-95">
+            {saving ? "..." : <><Icon name="plus" size={15} /> Phase hinzufügen</>}
           </button>
         </div>
       </div>
@@ -2584,13 +2596,13 @@ function TournamentSettingsTab({ tournamentId, onLogoUpdated }: { tournamentId?:
     <div className="space-y-5 max-w-lg">
       {/* Logo */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">🖼️ Veranstaltungslogo</h3>
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2"><Icon name="image" size={17} className="text-indigo-500 dark:text-indigo-400" /> Veranstaltungslogo</h3>
         <p className="text-xs text-gray-400">Wird im Header, in der Turnierauswahl und in allen Exporten (PDF) angezeigt.</p>
         <div className="flex items-center gap-4">
           <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-dashed border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-700 shrink-0">
             {tournament.logo_path
               ? <img src={tournament.logo_path} alt="Logo" className="w-full h-full object-contain" />
-              : <span className="text-2xl opacity-30">🏆</span>
+              : <Icon name="trophy" size={28} className="text-gray-300 dark:text-gray-500" />
             }
           </div>
           <div className="flex flex-col gap-2">
@@ -2607,7 +2619,7 @@ function TournamentSettingsTab({ tournamentId, onLogoUpdated }: { tournamentId?:
 
       {/* Details */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-3">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-200">📝 Turnier-Details</h3>
+        <h3 className="inline-flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200"><Icon name="edit" size={16} className="text-indigo-500 dark:text-indigo-400" /> Turnier-Details</h3>
         <div className="space-y-2">
           <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Turniername *" className={inputClass} />
           <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Ort" className={inputClass} />
@@ -2690,8 +2702,8 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
     <div className="space-y-4 max-w-lg">
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4">
         <div>
-          <h3 className="font-semibold text-gray-700 flex items-center gap-2">
-            <span className="text-lg">🔗</span> Öffentlicher Share-Link
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+            <Icon name="link" size={17} className="text-indigo-500 dark:text-indigo-400" /> Öffentlicher Share-Link
           </h3>
           <p className="text-xs text-gray-400 mt-1">Der Link kann ohne Login im Browser geöffnet werden – ideal für Großbildschirme, Tablets oder zur Weitergabe an Zuschauer.</p>
         </div>
@@ -2702,8 +2714,8 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Aktiver Link</label>
               <div className="flex gap-2">
                 <code className="flex-1 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-xs font-mono text-indigo-700 break-all">{shareUrl}</code>
-                <button onClick={() => copy(shareUrl, "public")} className="shrink-0 text-xs bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-lg hover:bg-indigo-100 font-medium">
-                  {copied === "public" ? "✓" : "Kopieren"}
+                <button onClick={() => copy(shareUrl, "public")} className="inline-flex items-center gap-1 shrink-0 text-xs bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 px-3 py-2 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-500/25 font-medium transition active:scale-95">
+                  {copied === "public" ? <><Icon name="check" size={13} /> Kopiert</> : "Kopieren"}
                 </button>
               </div>
             </div>
@@ -2729,7 +2741,7 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
       <div className="bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800/60 rounded-xl p-5 space-y-4">
         <div>
           <h3 className="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
-            <span className="text-lg">🔒</span> Interner Staff-Link
+            <Icon name="lock" size={17} className="text-amber-500 dark:text-amber-400" /> Interner Staff-Link
           </h3>
           <p className="text-xs text-gray-400 mt-1">Wie der öffentliche Link, zeigt aber zusätzlich die <strong>Telefonliste</strong>. Für Helfer/Dienstleister ohne Login. Nur an interne Personen weitergeben.</p>
         </div>
@@ -2740,8 +2752,8 @@ function ShareTab({ tournamentId }: { tournamentId?: number }) {
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Aktiver interner Link</label>
               <div className="flex gap-2">
                 <code className="flex-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 rounded-lg px-3 py-2 text-xs font-mono text-amber-800 dark:text-amber-300 break-all">{staffUrl}</code>
-                <button onClick={() => copy(staffUrl, "staff")} className="shrink-0 text-xs bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg hover:bg-amber-100 font-medium text-amber-800">
-                  {copied === "staff" ? "✓" : "Kopieren"}
+                <button onClick={() => copy(staffUrl, "staff")} className="inline-flex items-center gap-1 shrink-0 text-xs bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 px-3 py-2 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-500/25 font-medium text-amber-800 dark:text-amber-300 transition active:scale-95">
+                  {copied === "staff" ? <><Icon name="check" size={13} /> Kopiert</> : "Kopieren"}
                 </button>
               </div>
             </div>
@@ -3054,17 +3066,17 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
     <div className="space-y-4">
       {flash && <div className="text-sm rounded-lg px-3 py-2 border bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">{flash}</div>}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-lg">🕐 Schichtplan</h3>
+        <h3 className="inline-flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200 text-lg"><Icon name="clock" size={19} className="text-indigo-500 dark:text-indigo-400" /> Schichtplan</h3>
         <div className="flex gap-2 items-center flex-wrap">
           <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
             className={inputClass + " text-sm py-1.5"} />
-          {filterDate && <button onClick={() => setFilterDate("")} className="text-xs text-gray-400 hover:text-gray-600">✕</button>}
+          {filterDate && <button onClick={() => setFilterDate("")} aria-label="Filter zurücksetzen" className="grid place-items-center w-7 h-7 rounded-md text-gray-400 hover:text-gray-600 hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90"><Icon name="x" size={15} /></button>}
           {shifts.length > 0 && <>
-            <button onClick={exportExcel} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700">📊 Excel</button>
-            <button onClick={exportPDF} className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-red-700">📄 PDF</button>
+            <button onClick={exportExcel} className="inline-flex items-center gap-1.5 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700 transition active:scale-95"><Icon name="chart" size={15} /> Excel</button>
+            <button onClick={exportPDF} className="inline-flex items-center gap-1.5 bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-red-700 transition active:scale-95"><Icon name="file" size={15} /> PDF</button>
           </>}
           <button onClick={() => setEditShift({ date: filterDate || today(), start_time: "08:00", end_time: "17:00" })}
-            className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Schicht</button>
+            className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 transition active:scale-95"><Icon name="plus" size={15} /> Schicht</button>
         </div>
       </div>
 
@@ -3109,8 +3121,8 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
 
       {/* Schichten-Liste */}
       {shifts.length === 0 && !editShift && (
-        <div className="text-center py-10 text-gray-400">
-          <div className="text-4xl mb-2">🕐</div>
+        <div className="text-center py-10 text-gray-400 eq-fade-up">
+          <div className="mx-auto mb-2 grid place-items-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"><Icon name="clock" size={30} /></div>
           <p>Noch keine Schichten angelegt.</p>
         </div>
       )}
@@ -3133,19 +3145,19 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
                   <span className="text-xs text-gray-400">{shift.date}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {shift.team_name && <span className="text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full">👥 {shift.team_name}</span>}
+                  {shift.team_name && <span className="inline-flex items-center gap-1 text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full"><Icon name="users" size={12} className="shrink-0" /> {shift.team_name}</span>}
                   <span className="text-xs text-gray-500">{shift.worker_count} Mitarbeiter</span>
                   {shift.attended_count > 0 && (
-                    <span className="text-xs text-green-600">✓ {shift.attended_count} anwesend</span>
+                    <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400"><Icon name="check" size={12} className="shrink-0" /> {shift.attended_count} anwesend</span>
                   )}
                   {shift.notes && <span className="text-xs text-gray-400 italic">{shift.notes}</span>}
                 </div>
               </div>
               <div className="flex gap-1 shrink-0">
-                {shift.team_id && <button onClick={e => { e.stopPropagation(); notifyShift(shift.id); }} title="Team benachrichtigen" className="text-xs text-emerald-600 hover:underline px-1">📨 Senden</button>}
+                {shift.team_id && <button onClick={e => { e.stopPropagation(); notifyShift(shift.id); }} title="Team benachrichtigen" className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline px-1"><Icon name="send" size={13} className="shrink-0" /> Senden</button>}
                 <button onClick={e => { e.stopPropagation(); setEditShift({ ...shift }); }} className="text-xs text-blue-600 hover:underline px-1">Bearbeiten</button>
                 <button onClick={e => { e.stopPropagation(); deleteShift(shift.id); }} className="text-xs text-red-500 hover:underline px-1">Löschen</button>
-                <span className="text-gray-400 text-sm">{isExpanded ? "▲" : "▼"}</span>
+                <ChevronDown size={16} className={`text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
               </div>
             </div>
 
@@ -3153,13 +3165,13 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
               <div className="border-t border-gray-100 dark:border-gray-700 p-3 space-y-2 bg-gray-50 dark:bg-gray-900/30">
                 {shift.assignments.map(a => (
                   <div key={a.id} className="flex items-center gap-2">
-                    <button onClick={() => toggleAttended(a)}
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs shrink-0 transition ${a.attended === 1 ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"}`}>
-                      {a.attended === 1 ? "✓" : ""}
+                    <button onClick={() => toggleAttended(a)} aria-label={a.attended === 1 ? "Als abwesend markieren" : "Als anwesend markieren"}
+                      className={`w-6 h-6 rounded-full border-2 grid place-items-center shrink-0 transition active:scale-90 ${a.attended === 1 ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"}`}>
+                      {a.attended === 1 && <Icon name="check" size={14} strokeWidth={3} className="eq-draw" />}
                     </button>
                     <span className={`flex-1 text-sm ${a.attended === 1 ? "text-gray-800 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"}`}>{a.worker_name}</span>
                     {a.notes && <span className="text-xs text-gray-400 italic">{a.notes}</span>}
-                    <button onClick={() => removeWorker(a.id)} className="text-xs text-red-400 hover:text-red-600">✕</button>
+                    <button onClick={() => removeWorker(a.id)} aria-label="Entfernen" className="grid place-items-center w-6 h-6 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition active:scale-90"><Icon name="x" size={14} /></button>
                   </div>
                 ))}
                 {(() => {
@@ -3176,7 +3188,7 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
                         <option value="">{allHelpers.length === 0 ? "Keine Helfer angelegt" : "Helfer auswählen…"}</option>
                         {available.map(h => <option key={h.id} value={h.id}>{h.first_name} {h.last_name}</option>)}
                       </select>
-                      <button onClick={() => addHelper(shift.id)} disabled={!newHelper[shift.id]} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">+ Zuweisen</button>
+                      <button onClick={() => addHelper(shift.id)} disabled={!newHelper[shift.id]} className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50 transition active:scale-95"><Icon name="plus" size={15} /> Zuweisen</button>
                     </div>
                   );
                 })()}
@@ -3205,8 +3217,8 @@ function InquiriesTab() {
         <h3 className="font-semibold text-gray-700 dark:text-gray-200">Kontaktanfragen ({inquiries.length})</h3>
       </div>
       {inquiries.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          <div className="text-3xl mb-2">📭</div>
+        <div className="text-center py-12 text-gray-400 eq-fade-up">
+          <div className="mx-auto mb-2 grid place-items-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"><Icon name="inbox" size={30} /></div>
           <p className="text-sm">Noch keine Anfragen eingegangen.</p>
         </div>
       ) : inquiries.map(q => (
@@ -3250,8 +3262,8 @@ function PasswordSettings() {
       <Field label="Neues Admin-Passwort">
         <input type="password" value={adminPw} onChange={e => setAdminPw(e.target.value)} className={inputClass} placeholder="Leer lassen = nicht ändern" />
       </Field>
-      <button onClick={save} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
-        {saved ? "✓ Gespeichert" : "Speichern"}
+      <button onClick={save} className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition active:scale-95">
+        {saved ? <><Icon name="check" size={15} className="eq-draw" /> Gespeichert</> : "Speichern"}
       </button>
       <p className="text-xs text-gray-400">Standard-Passwörter: viewer123 / admin123</p>
     </div>
@@ -3281,8 +3293,8 @@ function DocUploadButton({ onUploaded, tournamentId, label }: { onUploaded: () =
 
   return (
     <div>
-      <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition ${uploading ? "bg-gray-300 text-gray-500" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
-        {uploading ? "Hochladen…" : `📄 ${label}`}
+      <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition active:scale-95 ${uploading ? "bg-gray-300 text-gray-500" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
+        {uploading ? "Hochladen…" : <><Icon name="file" size={16} /> {label}</>}
         <input type="file" accept="application/pdf" className="hidden" disabled={uploading} onChange={upload} />
       </label>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
@@ -3295,8 +3307,8 @@ function DocList({ docs, onDelete }: { docs: DocMeta[]; onDelete: (id: number, n
   return (
     <div className="space-y-2 mt-3">
       {docs.map(doc => (
-        <div key={doc.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
-          <span className="text-base shrink-0">📄</span>
+        <div key={doc.id} className="flex items-center gap-2.5 bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
+          <Icon name="file" size={18} className="shrink-0 text-indigo-500 dark:text-indigo-400" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{doc.original_name}</p>
             <p className="text-xs text-gray-400">{(doc.size / 1024).toFixed(0)} KB · {new Date(doc.uploaded_at).toLocaleDateString("de-DE")}</p>
@@ -3363,7 +3375,7 @@ function DocumentsAdminTab({ tournamentId, isSuperAdmin }: { tournamentId?: numb
         </div>
       )}
 
-      <p className="text-xs text-gray-400 text-center">Event-spezifische Dokumente: Eintrag in der Liste anklicken → „📄 PDF hinzufügen"</p>
+      <p className="text-xs text-gray-400 text-center">Event-spezifische Dokumente: Eintrag in der Liste anklicken → „PDF hinzufügen"</p>
     </div>
   );
 }
@@ -3372,7 +3384,7 @@ function DocumentsAdminTab({ tournamentId, isSuperAdmin }: { tournamentId?: numb
 function InfoModal({ tournamentId, onClose }: { tournamentId: number; onClose: () => void }) {
   const [tab, setTab] = useState<"kontakte" | "dokumente">("kontakte");
   const tabCls = (active: boolean) =>
-    `flex-1 px-3 py-2 rounded-lg text-sm font-medium transition ${active ? "bg-indigo-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"}`;
+    `flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition active:scale-95 ${active ? "bg-indigo-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -3380,12 +3392,12 @@ function InfoModal({ tournamentId, onClose }: { tournamentId: number; onClose: (
       <div className="relative bg-white dark:bg-gray-900 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto eq-sheet">
         <div className="sticky top-0 bg-white dark:bg-gray-900 px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-gray-900 dark:text-gray-100 text-lg">ℹ️ Infos</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none">✕</button>
+            <h2 className="inline-flex items-center gap-2 font-bold text-gray-900 dark:text-gray-100 text-lg"><Info size={19} className="text-indigo-500 dark:text-indigo-400" /> Infos</h2>
+            <button onClick={onClose} aria-label="Schließen" className="grid place-items-center w-9 h-9 -mr-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90"><Icon name="x" size={20} /></button>
           </div>
           <div className="flex gap-2">
-            <button className={tabCls(tab === "kontakte")} onClick={() => setTab("kontakte")}>📞 Telefonliste</button>
-            <button className={tabCls(tab === "dokumente")} onClick={() => setTab("dokumente")}>📄 Dokumente</button>
+            <button className={tabCls(tab === "kontakte")} onClick={() => setTab("kontakte")}><Icon name="phone" size={15} /> Telefonliste</button>
+            <button className={tabCls(tab === "dokumente")} onClick={() => setTab("dokumente")}><Icon name="file" size={15} /> Dokumente</button>
           </div>
         </div>
         <div className="p-4">
@@ -3414,15 +3426,15 @@ function ContactsViewer({ tournamentId, embedded }: { tournamentId: number; embe
       <div className="space-y-2">
         {contacts.map(c => (
           <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-start gap-3 p-3">
-            <span className="text-xl shrink-0">📞</span>
+            <Icon name="phone" size={20} className="shrink-0 text-indigo-500 dark:text-indigo-400" />
             <div className="flex-1 min-w-0">
               <p className="font-medium text-gray-800 dark:text-gray-100 break-words">{c.name}</p>
               {c.role && <p className="text-sm text-gray-500 dark:text-gray-400 break-words">{c.role}</p>}
             </div>
             {c.phone && (
               <a href={`tel:${c.phone.replace(/\s/g, "")}`}
-                className="shrink-0 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition whitespace-nowrap">
-                📲 {c.phone}
+                className="inline-flex items-center gap-1.5 shrink-0 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition active:scale-95 whitespace-nowrap">
+                <Icon name="phone" size={14} className="shrink-0" /> {c.phone}
               </a>
             )}
           </div>
@@ -3458,7 +3470,7 @@ function DocumentsViewer({ tournamentId, embedded }: { tournamentId: number; emb
             onClick={() => setFullscreenDoc(doc)}
             className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition text-left"
           >
-            <span className="text-xl shrink-0">📄</span>
+            <Icon name="file" size={19} className="shrink-0 text-indigo-500 dark:text-indigo-400" />
             <span className="flex-1 font-medium text-gray-800 dark:text-gray-100 truncate">{doc.original_name}</span>
             <span className="text-xs text-indigo-500 dark:text-indigo-400 shrink-0">Öffnen ↗</span>
           </button>
@@ -3542,16 +3554,16 @@ function HelpersRosterTab() {
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="font-semibold text-gray-700 dark:text-gray-200">🙋 Zentrale Helferliste</h3>
+          <h3 className="inline-flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200"><Icon name="hand" size={17} className="text-indigo-500 dark:text-indigo-400" /> Zentrale Helferliste</h3>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Stammdaten aller Helfer. Beim Anlegen wird ein Passwort erzeugt und per E-Mail verschickt.</p>
         </div>
         <div className="flex gap-2">
-          <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition ${importing ? "bg-gray-300 text-gray-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
-            {importing ? "Importiere…" : "📥 Excel-Import"}
+          <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition active:scale-95 ${importing ? "bg-gray-300 text-gray-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+            {importing ? "Importiere…" : <><Icon name="download" size={15} /> Excel-Import</>}
             <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={importing}
               onChange={e => { const f = e.target.files?.[0]; if (f) importExcel(f); e.target.value = ""; }} />
           </label>
-          <button onClick={() => setEdit({})} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700">+ Helfer</button>
+          <button onClick={() => setEdit({})} className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 transition active:scale-95"><Icon name="plus" size={15} /> Helfer</button>
         </div>
       </div>
 
@@ -3580,7 +3592,7 @@ function HelpersRosterTab() {
       )}
 
       {helpers.length > 8 && (
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Helfer suchen…" className={inputClass} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Helfer suchen…" className={inputClass} />
       )}
 
       <div className="space-y-2">
@@ -3597,13 +3609,13 @@ function HelpersRosterTab() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
                   <span className="text-gray-400">Passwort:</span>
                   <span className="font-mono text-gray-700 dark:text-gray-200">{revealed[h.id] !== undefined ? revealed[h.id] : "••••••••"}</span>
-                  <button onClick={() => togglePw(h)} title={revealed[h.id] !== undefined ? "Verbergen" : "Anzeigen"} className="text-gray-400 hover:text-indigo-600 transition">
-                    {revealed[h.id] !== undefined ? "🙈" : "👁"}
+                  <button onClick={() => togglePw(h)} aria-label={revealed[h.id] !== undefined ? "Passwort verbergen" : "Passwort anzeigen"} title={revealed[h.id] !== undefined ? "Verbergen" : "Anzeigen"} className="grid place-items-center w-6 h-6 rounded text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-black/5 dark:hover:bg-white/10 transition active:scale-90">
+                    <Icon name={revealed[h.id] !== undefined ? "eyeOff" : "eye"} size={15} />
                   </button>
                 </p>
               ) : null}
             </div>
-            <button onClick={() => resetPw(h)} title="Neues Passwort senden" className="text-xs text-emerald-600 hover:underline shrink-0">🔑 Zugang</button>
+            <button onClick={() => resetPw(h)} title="Neues Passwort senden" className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline shrink-0"><Icon name="key" size={13} className="shrink-0" /> Zugang</button>
             <button onClick={() => setEdit({ ...h })} className="text-xs text-blue-600 hover:underline shrink-0">Bearbeiten</button>
             <button onClick={() => del(h)} className="text-xs text-red-500 hover:underline shrink-0">Löschen</button>
           </div>
@@ -3642,7 +3654,7 @@ function NotificationsTab() {
     <div className="space-y-3 max-w-3xl">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-gray-700 dark:text-gray-200">📨 Versand-Protokoll</h3>
+          <h3 className="inline-flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200"><Icon name="send" size={16} className="text-indigo-500 dark:text-indigo-400" /> Versand-Protokoll</h3>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Welche E-Mails wurden versendet (Zugangsdaten + Einteilungen).</p>
         </div>
         <button onClick={load} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">Aktualisieren</button>
@@ -3728,8 +3740,8 @@ function AdminsTab() {
         <div>
           <label className="text-xs text-gray-500 block mb-1">Zugriff</label>
           <select value={form.tournament_id} onChange={e => setForm(f => ({ ...f, tournament_id: e.target.value }))} className={inputClass}>
-            <option value="">⭐ Haupt-Admin (alle Turniere)</option>
-            {tournaments.map(t => <option key={t.id} value={t.id}>🎪 Nur: {t.name}</option>)}
+            <option value="">Haupt-Admin (alle Turniere)</option>
+            {tournaments.map(t => <option key={t.id} value={t.id}>Nur: {t.name}</option>)}
           </select>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -3746,7 +3758,7 @@ function AdminsTab() {
       <div className="space-y-2">
         {admins.map(a => (
           <div key={a.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center gap-3">
-            <div className="text-xl">{a.tournament_id ? "🎪" : "⭐"}</div>
+            <div className={`grid place-items-center w-9 h-9 rounded-lg shrink-0 ${a.tournament_id ? "bg-violet-50 dark:bg-violet-500/15 text-violet-500 dark:text-violet-300" : "bg-amber-50 dark:bg-amber-500/15 text-amber-500 dark:text-amber-300"}`}><Icon name={a.tournament_id ? "tent" : "star"} size={18} /></div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-gray-800 dark:text-gray-100">{a.name}</p>
               <p className="text-xs text-gray-400">

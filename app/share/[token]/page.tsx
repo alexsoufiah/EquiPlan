@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { use } from "react";
 import { Trophy, MapPin, Clock, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Icon } from "@/lib/icons";
 import { useLang } from "@/lib/i18n";
 
 interface Arena { id: number; name: string; }
@@ -146,7 +147,7 @@ function ShareTimeline({ entries, selectedDate, customPhases = {} }: { entries: 
             <div key={String(arena.id)} className="flex-1 min-w-[180px] border-l border-white/10">
               {/* Header */}
               <div className="h-10 flex items-center justify-center border-b border-white/10 bg-indigo-900/30 px-2">
-                <span className="text-xs font-semibold text-indigo-200 truncate text-center">📍 {arena.name}</span>
+                <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold text-indigo-200 truncate text-center"><MapPin size={11} className="shrink-0" /> {arena.name}</span>
               </div>
               {/* Inhalt */}
               <div className="relative" style={{ height: totalHeight }}>
@@ -193,14 +194,14 @@ function ShareTimeline({ entries, selectedDate, customPhases = {} }: { entries: 
                         <div className="font-mono opacity-80" style={{ fontSize: "9px" }}>{entry.start_time}–{entry.end_time}</div>
                       )}
                       {height >= 52 && entry.teams?.length > 0 && (
-                        <div className="truncate opacity-75" style={{ fontSize: "9px" }}>
-                          👥 {entry.teams.map(t => t.name).join(", ")}
+                        <div className="flex items-center gap-1 truncate opacity-75" style={{ fontSize: "9px" }}>
+                          <Icon name="users" size={9} className="shrink-0" /> <span className="truncate">{entry.teams.map(t => t.name).join(", ")}</span>
                         </div>
                       )}
                       {height >= 64 && entry.speaker_name && (
                         <div className="truncate" style={{ fontSize: "9px" }}>
-                          <span className="rounded px-1 text-white" style={{ backgroundColor: entry.speaker_color || "#4B5563" }}>
-                            🎙 {entry.speaker_name}
+                          <span className="inline-flex items-center gap-1 rounded px-1 text-white" style={{ backgroundColor: entry.speaker_color || "#4B5563" }}>
+                            <Icon name="mic" size={9} className="shrink-0" /> {entry.speaker_name}
                           </span>
                         </div>
                       )}
@@ -377,9 +378,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
           </div>
           {internal && (
             <button onClick={() => setShowInfo(true)}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-white/15 hover:bg-white/25 transition shrink-0 flex items-center gap-1"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-white/15 hover:bg-white/25 transition active:scale-95 shrink-0 flex items-center gap-1.5"
               title="Telefonliste">
-              📞 Telefonliste
+              <Icon name="phone" size={13} /> Telefonliste
             </button>
           )}
           <button onClick={() => setLang(lang === "de" ? "en" : "de")} data-no-translate
@@ -446,12 +447,12 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
             {/* Ansicht-Toggle */}
             <div className="flex gap-0.5 p-0.5 bg-white/8 border border-white/10 rounded-lg shrink-0">
               <button onClick={() => setViewMode("list")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${viewMode === "list" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"}`}>
-                ≡ Liste
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition active:scale-95 ${viewMode === "list" ? "bg-indigo-600 text-white" : "text-gray-300 hover:text-white"}`}>
+                <Icon name="list" size={13} /> Liste
               </button>
               <button onClick={() => setViewMode("timeline")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${viewMode === "timeline" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"}`}>
-                ▦ Zeitleiste
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition active:scale-95 ${viewMode === "timeline" ? "bg-indigo-600 text-white" : "text-gray-300 hover:text-white"}`}>
+                <Icon name="columns" size={13} /> Zeitleiste
               </button>
             </div>
           </div>
@@ -541,11 +542,11 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                             </span>
                           )}
                           {e.teams?.map(t => (
-                            <span key={t.id} className="text-xs text-gray-300 bg-white/8 border border-white/10 rounded px-2 py-0.5">👥 {t.name}</span>
+                            <span key={t.id} className="inline-flex items-center gap-1 text-xs text-gray-300 bg-white/8 border border-white/10 rounded px-2 py-0.5"><Icon name="users" size={11} className="shrink-0" /> {t.name}</span>
                           ))}
                           {e.speaker_name && (
-                            <span className="rounded px-2 py-0.5 text-white text-xs font-medium" style={{ backgroundColor: e.speaker_color || "#4B5563" }}>
-                              🎙 {e.speaker_name}
+                            <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-white text-xs font-medium" style={{ backgroundColor: e.speaker_color || "#4B5563" }}>
+                              <Icon name="mic" size={11} className="shrink-0" /> {e.speaker_name}
                             </span>
                           )}
                         </div>
@@ -568,7 +569,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                                     : "text-amber-300 bg-amber-500/15 border-amber-400/30 hover:bg-amber-500/25 cursor-pointer"
                                 }`}
                               >
-                                {full ? `✓ Alle ${needed} Plätze belegt` : `🙋 ${signedUp}/${needed} Plätze – Jetzt anmelden`}
+                                {full ? <><Icon name="check" size={14} className="shrink-0" /> Alle {needed} Plätze belegt</> : <><Icon name="hand" size={14} className="shrink-0" /> {signedUp}/{needed} Plätze – Jetzt anmelden</>}
                               </button>
                             </div>
                           );
@@ -612,8 +613,8 @@ function StaffContactsModal({ contacts, onClose }: { contacts: { id: number; nam
       <div className="absolute inset-0 bg-black/60 eq-backdrop" onClick={onClose} />
       <div className="relative bg-gray-900 border border-white/10 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto eq-sheet">
         <div className="sticky top-0 bg-gray-900 px-4 py-3 border-b border-white/10 flex items-center justify-between">
-          <h2 className="font-bold text-white text-lg">📞 Telefonliste</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">✕</button>
+          <h2 className="inline-flex items-center gap-2 font-bold text-white text-lg"><Icon name="phone" size={18} className="text-indigo-300" /> Telefonliste</h2>
+          <button onClick={onClose} aria-label="Schließen" className="grid place-items-center w-9 h-9 -mr-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition active:scale-90"><Icon name="x" size={20} /></button>
         </div>
         <div className="p-4 space-y-2">
           {contacts.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Keine Kontakte hinterlegt.</p>}
@@ -625,8 +626,8 @@ function StaffContactsModal({ contacts, onClose }: { contacts: { id: number; nam
               </div>
               {c.phone && (
                 <a href={`tel:${c.phone.replace(/\s/g, "")}`}
-                  className="shrink-0 text-sm font-medium text-indigo-200 bg-indigo-500/20 border border-indigo-400/30 rounded-lg px-3 py-1.5 hover:bg-indigo-500/30 transition whitespace-nowrap">
-                  📲 {c.phone}
+                  className="inline-flex items-center gap-1.5 shrink-0 text-sm font-medium text-indigo-200 bg-indigo-500/20 border border-indigo-400/30 rounded-lg px-3 py-1.5 hover:bg-indigo-500/30 transition active:scale-95 whitespace-nowrap">
+                  <Icon name="phone" size={14} className="shrink-0" /> {c.phone}
                 </a>
               )}
             </div>
@@ -662,10 +663,10 @@ function HelperSignupModal({ entry, token, onClose, onSignedUp }: { entry: Entry
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/70 eq-backdrop" onClick={onClose} />
       <div className="relative bg-gray-900 border border-white/10 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl p-5 eq-sheet">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">✕</button>
+        <button onClick={onClose} aria-label="Schließen" className="absolute top-3 right-3 grid place-items-center w-9 h-9 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition active:scale-90"><Icon name="x" size={20} /></button>
         {done ? (
           <div className="text-center py-6 space-y-3">
-            <div className="text-5xl">🙌</div>
+            <div className="mx-auto grid place-items-center w-16 h-16 rounded-full bg-violet-500/20 text-violet-300 eq-pop"><Icon name="sparkles" size={32} className="eq-draw" /></div>
             <p className="text-white font-bold text-lg">Danke, {name}!</p>
             <p className="text-gray-400 text-sm">Du bist als Helfer eingetragen für:<br /><span className="text-white">{entry.title}</span></p>
             <button onClick={onClose} className="mt-3 bg-violet-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-violet-500">Schließen</button>

@@ -15,7 +15,9 @@
 html, body {
   background: #1e1b4b;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   height: 100%;
   width: 100%;
   overflow: hidden;
@@ -47,6 +49,13 @@ html, body {
 @keyframes eq-backdrop  { from { opacity: 0; }                               to { opacity: 1; } }
 @keyframes eq-live      { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
 
+/* Icon-Mikrointeraktionen (nur an seltenen Stellen – Onboarding, Erfolg) */
+@keyframes eq-pop  { 0% { opacity: 0; transform: scale(0.82); } 60% { opacity: 1; transform: scale(1.04); } 100% { transform: scale(1); } }
+@keyframes eq-draw { from { stroke-dashoffset: 44; } to { stroke-dashoffset: 0; } }
+@keyframes eq-wave { 0%, 60%, 100% { transform: rotate(0); } 15% { transform: rotate(14deg); } 30% { transform: rotate(-8deg); } 45% { transform: rotate(12deg); } }
+@keyframes eq-ring { 0%, 65%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(12deg); } 20%, 40% { transform: rotate(-12deg); } }
+@keyframes eq-spin-soft { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
 /* Gestaffeltes Listen-Entrée: --i = Index (im JSX gesetzt, gedeckelt).
    Kein dauerhaftes will-change — der Browser kompositiert transform/opacity
    ohnehin und gibt die Layer nach der Animation frei. */
@@ -63,9 +72,33 @@ html, body {
 /* Live-/Jetzt-Indikator: ruhiger, symmetrischer Puls (ease-in-out, kein Entrance-Curve) */
 .eq-live { animation: eq-live 1.5s ease-in-out infinite; }
 
+/* Icon-Grundausrichtung: sitzt sauber auf der Schrift-Grundlinie (inline)
+   und schrumpft nie in Flex-Containern. */
+.eq-icon { display: inline-block; vertical-align: -0.125em; flex: none; }
+
+/* Pop-In für Badges/Erfolgs-Icons (einmalig, seltene Stellen) */
+.eq-pop { animation: eq-pop 360ms var(--ease-out-expo) both; }
+
+/* „Zeichnen" – Häkchen/Sparkle zieht sich ein (Stroke-Dash) */
+.eq-draw { stroke-dasharray: 44; animation: eq-draw 460ms var(--ease-out-quint) 80ms both; }
+
+/* Winkende Hand (Willkommen) – zweimal, dann Ruhe */
+.eq-wave { transform-origin: 70% 80%; animation: eq-wave 1.9s ease-in-out 0.35s 2; }
+
+/* Klingelnde Glocke (Benachrichtigungs-Schritt) – zweimal */
+.eq-ring { transform-origin: 50% 12%; animation: eq-ring 2.2s ease-in-out 0.4s 2; }
+
+/* Zahnrad dreht einmal sanft durch (Admin-Schritt) */
+.eq-spin-hover { transform-origin: 50% 50%; animation: eq-spin-soft 4.5s linear 1; }
+
 /* Reduzierte Bewegung: Motion-Klassen sofort im Endzustand zeigen (sichtbar) */
 @media (prefers-reduced-motion: reduce) {
-  .eq-fade-up, .eq-sheet, .eq-backdrop, .eq-live { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .eq-fade-up, .eq-sheet, .eq-backdrop, .eq-live,
+  .eq-pop, .eq-wave, .eq-ring, .eq-spin-hover {
+    animation: none !important; opacity: 1 !important; transform: none !important;
+  }
+  /* Häkchen/Sparkle vollständig sichtbar (kein halb gezeichneter Strich) */
+  .eq-draw { animation: none !important; stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
 }
 
 /* Barrierefreiheit: Bewegung reduzieren – Endzustände (Deckkraft/Farbe) bleiben,
