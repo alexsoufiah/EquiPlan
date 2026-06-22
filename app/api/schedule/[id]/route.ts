@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, canManageTournament } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { sendTargetedPush } from "@/lib/push";
 import { broadcast } from "@/lib/sse";
@@ -39,6 +39,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const body = await req.json();
   const { tournament_id, date, start_time, end_time, title, phase, pruefungs_id, arena_id, team_ids, speaker_id, notes, helpers_needed, helpers_task } = body;
 
+  // Scope: Show-Admin darf nur Einträge des eigenen Turniers ändern – und sie
+  // nicht in ein fremdes Turnier verschieben.
+  const existing = db.prepare("SELECT tournament_id FROM schedule_entries WHERE id = ?").get(id) as { tournament_id: number | null } | undefined;
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canManageTournament(session, existing.tournament_id) || !canManageTournament(session, tournament_id)) {
+    return NextResponse.json({ error: "Kein Zugriff auf dieses Turnier" }, { status: 403 });
+  }
+
   try {
     db.prepare(`
       UPDATE schedule_entries SET
@@ -74,8 +82,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params;
   const db = getDb();
 
-  const entry = db.prepare("SELECT * FROM schedule_entries WHERE id = ?").get(id) as { title: string; date: string; speaker_id: number | null } | undefined;
+  const entry = db.prepare("SELECT * FROM schedule_entries WHERE id = ?").get(id) as { title: string; date: string; speaker_id: number | null; tournament_id: number | null } | undefined;
   if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canManageTournament(session, entry.tournament_id)) return NextResponse.json({ error: "Kein Zugriff auf dieses Turnier" }, { status: 403 });
 
   const teamIds = (db.prepare("SELECT team_id FROM schedule_entry_teams WHERE entry_id = ?").all(id) as { team_id: number }[]).map(r => r.team_id);
 

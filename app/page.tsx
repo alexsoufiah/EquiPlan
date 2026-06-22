@@ -3547,6 +3547,28 @@ function HelpersRosterTab() {
     setImportResult(d); load();
   }
 
+  // Helferliste als Excel exportieren (Stammdaten, ohne Passwörter)
+  function exportHelpers() {
+    if (helpers.length === 0) return;
+    import("xlsx").then(XLSX => {
+      const rows: (string | number)[][] = [
+        ["Vorname", "Nachname", "E-Mail", "Telefon", "Account", "Teams"],
+        ...helpers.map(h => [h.first_name, h.last_name, h.email, h.phone ?? "", h.has_account ? "Ja" : "Nein", h.team_count ?? 0]),
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws["!cols"] = [{ wch: 16 }, { wch: 16 }, { wch: 28 }, { wch: 16 }, { wch: 9 }, { wch: 7 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Helfer");
+      const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `EquiPlan_Helfer_${today()}.xlsx`;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    });
+  }
+
   const q = search.trim().toLowerCase();
   const filtered = q ? helpers.filter(h => `${h.first_name} ${h.last_name} ${h.email}`.toLowerCase().includes(q)) : helpers;
 
@@ -3557,7 +3579,11 @@ function HelpersRosterTab() {
           <h3 className="inline-flex items-center gap-2 font-semibold text-gray-700 dark:text-gray-200"><Icon name="hand" size={17} className="text-indigo-500 dark:text-indigo-400" /> Zentrale Helferliste</h3>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Stammdaten aller Helfer. Beim Anlegen wird ein Passwort erzeugt und per E-Mail verschickt.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={exportHelpers} disabled={helpers.length === 0}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-emerald-300 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+            <Icon name="chart" size={15} /> Excel-Export
+          </button>
           <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition active:scale-95 ${importing ? "bg-gray-300 text-gray-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
             {importing ? "Importiere…" : <><Icon name="download" size={15} /> Excel-Import</>}
             <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={importing}

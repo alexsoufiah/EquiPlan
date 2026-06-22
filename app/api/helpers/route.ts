@@ -31,14 +31,15 @@ export async function POST(req: NextRequest) {
 
   // Validate share_token belongs to the tournament of this entry
   const entry = db.prepare(`
-    SELECT se.id, se.helpers_needed, se.helpers_task, se.date, se.start_time, se.end_time, se.title, se.tournament_id, t.share_token
+    SELECT se.id, se.helpers_needed, se.helpers_task, se.date, se.start_time, se.end_time, se.title, se.tournament_id, t.share_token, t.staff_token
     FROM schedule_entries se
     JOIN tournaments t ON t.id = se.tournament_id
     WHERE se.id = ?
-  `).get(Number(entry_id)) as { id: number; helpers_needed: number; helpers_task?: string; date: string; start_time: string; end_time: string; title: string; tournament_id: number; share_token: string } | undefined;
+  `).get(Number(entry_id)) as { id: number; helpers_needed: number; helpers_task?: string; date: string; start_time: string; end_time: string; title: string; tournament_id: number; share_token: string | null; staff_token: string | null } | undefined;
 
   if (!entry) return NextResponse.json({ error: "Event nicht gefunden" }, { status: 404 });
-  if (entry.share_token !== share_token) return NextResponse.json({ error: "Ungültiger Link" }, { status: 403 });
+  // Anmeldung über den öffentlichen ODER den internen Staff-Link erlauben
+  if (entry.share_token !== share_token && entry.staff_token !== share_token) return NextResponse.json({ error: "Ungültiger Link" }, { status: 403 });
   if (!entry.helpers_needed || entry.helpers_needed <= 0) return NextResponse.json({ error: "Für dieses Event werden keine Helfer benötigt" }, { status: 400 });
 
   const currentCount = (db.prepare("SELECT COUNT(*) as c FROM event_helpers WHERE entry_id = ?").get(Number(entry_id)) as { c: number }).c;

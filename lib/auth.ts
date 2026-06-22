@@ -25,6 +25,15 @@ export interface Session {
   helperName?: string;
 }
 
+// Darf diese Admin-Session das angegebene Turnier verwalten?
+// Super-Admin (adminTournamentId == null) darf alles; ein Show-Admin nur sein
+// eigenes Turnier. Schützt turnier-gebundene Schreibzugriffe vor Cross-Tenant-Zugriff.
+export function canManageTournament(session: Session | null, tournamentId: number | string | null | undefined): boolean {
+  if (session?.role !== "admin") return false;
+  if (session.adminTournamentId == null) return true; // Super-Admin
+  return tournamentId != null && Number(tournamentId) === session.adminTournamentId;
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
 }

@@ -3,6 +3,9 @@ import { getPasswords, verifyPassword, createToken, initDefaultPasswords, hashPa
 import { getDb } from "@/lib/db";
 import { cookies } from "next/headers";
 
+// Session-Cookie-Optionen: in Produktion zwingend Secure (JWT nie über http senden).
+const COOKIE = { httpOnly: true as const, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production" };
+
 export async function POST(req: NextRequest) {
   await initDefaultPasswords();
   const { password, email } = await req.json();
@@ -16,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (helper?.password_hash && await verifyPassword(password, helper.password_hash)) {
       const name = `${helper.first_name} ${helper.last_name}`.trim();
       const token = await createToken({ role: "helper", helperId: helper.id, helperName: name });
-      (await cookies()).set("session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" });
+      (await cookies()).set("session", token, COOKIE);
       return NextResponse.json({ role: "helper", helperId: helper.id, helperName: name });
     }
     return NextResponse.json({ error: "E-Mail oder Passwort falsch" }, { status: 401 });
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest) {
   // Haupt-Admin (legacy password)
   if (adminHash && await verifyPassword(password, adminHash)) {
     const token = await createToken({ role: "admin" });
-    (await cookies()).set("session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" });
+    (await cookies()).set("session", token, COOKIE);
     return NextResponse.json({ role: "admin" });
   }
 
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
         ? { role: "admin" as const, adminId: admin.id, adminName: admin.name }
         : { role: "admin" as const, adminId: admin.id, adminName: admin.name, adminTournamentId: admin.tournament_id };
       const token = await createToken(session);
-      (await cookies()).set("session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" });
+      (await cookies()).set("session", token, COOKIE);
       return NextResponse.json({ role: "admin", adminName: admin.name, adminTournamentId: admin.tournament_id ?? undefined });
     }
   }
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest) {
   // Viewer
   if (viewerHash && await verifyPassword(password, viewerHash)) {
     const token = await createToken({ role: "viewer" });
-    (await cookies()).set("session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" });
+    (await cookies()).set("session", token, COOKIE);
     return NextResponse.json({ role: "viewer" });
   }
 
@@ -54,7 +57,7 @@ export async function POST(req: NextRequest) {
   for (const team of teams) {
     if (await verifyPassword(password, team.password_hash)) {
       const token = await createToken({ role: "team", teamId: team.id, teamName: team.name });
-      (await cookies()).set("session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" });
+      (await cookies()).set("session", token, COOKIE);
       return NextResponse.json({ role: "team", teamId: team.id, teamName: team.name });
     }
   }
@@ -64,7 +67,7 @@ export async function POST(req: NextRequest) {
   for (const speaker of speakers) {
     if (await verifyPassword(password, speaker.password_hash)) {
       const token = await createToken({ role: "speaker", speakerId: speaker.id, speakerName: speaker.name, speakerRole: speaker.role, speakerColor: speaker.color });
-      (await cookies()).set("session", token, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" });
+      (await cookies()).set("session", token, COOKIE);
       return NextResponse.json({ role: "speaker", speakerId: speaker.id, speakerName: speaker.name, speakerRole: speaker.role, speakerColor: speaker.color });
     }
   }

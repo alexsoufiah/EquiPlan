@@ -14,6 +14,9 @@ function getDb(): Database.Database {
     db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL");
     initSchema(db);
+    // Erst NACH den Migrationen aktivieren: die einmalige schedule_entries-Rebuild-
+    // Migration läuft so ohne FK-Kaskaden; ab jetzt greifen ON DELETE CASCADE/SET NULL.
+    db.pragma("foreign_keys = ON");
   }
   return db;
 }

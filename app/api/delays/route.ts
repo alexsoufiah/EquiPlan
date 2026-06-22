@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, canManageTournament } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { broadcast } from "@/lib/sse";
 
@@ -19,9 +19,9 @@ export async function GET(req: NextRequest) {
 // POST { tournament_id, date, arena_id (0 = ganzer Tag), minutes }
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (session?.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   const { tournament_id, date, arena_id, minutes } = await req.json();
   if (!tournament_id || !date) return NextResponse.json({ error: "tournament_id/date fehlt" }, { status: 400 });
+  if (!canManageTournament(session, tournament_id)) return NextResponse.json({ error: "Kein Zugriff auf dieses Turnier" }, { status: 403 });
   const db = getDb();
   const aid = Number(arena_id) || 0;
   const min = Math.max(0, Math.round(Number(minutes) || 0));

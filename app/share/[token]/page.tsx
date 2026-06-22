@@ -257,6 +257,9 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const [customPhases, setCustomPhases] = useState<Record<string, { label: string; color: string }>>({});
   const [showInfo, setShowInfo] = useState(false);
   const currentRef = useRef<HTMLDivElement>(null);
+  const revealedOnceRef = useRef(false);                       // Reveal-Animation nur beim ersten Laden
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldScrollRef = useRef(true);                        // Auto-Scroll nur bei Navigation, nicht bei Hintergrund-Refresh
 
   function onHelperSignedUp(entryId: number) {
     setEntries(prev => prev.map(e =>
@@ -292,8 +295,18 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
       for (const p of data.customPhases) m[p.key] = { label: p.label, color: p.color };
       setCustomPhases(m);
     }
-    setVisibleIds(new Set());
-    setTimeout(() => setVisibleIds(new Set(adjusted.map(e => e.id))), 50);
+    const ids = adjusted.map(e => e.id);
+    if (!revealedOnceRef.current && ids.length > 0) {
+      // Einmalige Reveal-Animation beim ersten Laden mit Inhalten
+      revealedOnceRef.current = true;
+      setVisibleIds(new Set());
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = setTimeout(() => setVisibleIds(new Set(ids)), 50);
+    } else {
+      // Spätere Aktualisierungen (Poll/SSE/Fokus): bereits sichtbare Karten NICHT
+      // ausblenden — verhindert das 30-Sekunden-Flackern des Boards.
+      setVisibleIds(new Set(ids));
+    }
     setEntries(adjusted);
   }, [token]);
 
@@ -323,7 +336,12 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     };
   }, [load]);
 
+  // Auto-Scroll zu „Jetzt/Nächstes" nur bei Navigation (Tag/Platz/Ansicht) bzw.
+  // beim ersten Laden anfordern — NICHT bei jedem Hintergrund-Refresh.
+  useEffect(() => { shouldScrollRef.current = true; }, [selectedDate, selectedArena, viewMode]);
   useEffect(() => {
+    if (!shouldScrollRef.current) return;            // Poll/SSE-Update → Scrollposition des Zuschauers in Ruhe lassen
+    shouldScrollRef.current = false;
     if (currentRef.current) currentRef.current.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
   }, [entries]);
 

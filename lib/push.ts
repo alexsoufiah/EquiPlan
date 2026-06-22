@@ -27,30 +27,48 @@ export function getVapidPublicKey(): string {
   return (db.prepare("SELECT value FROM settings WHERE key = 'vapid_public'").get() as { value: string })?.value ?? "";
 }
 
-export async function sendPushNotification(title: string, body: string) {
-  initVapid();
-  const db = getDb();
-  const subs = db.prepare("SELECT subscription FROM push_subscriptions").all() as { subscription: string }[];
+// Nur ein dauerhaft toter Endpoint (404 Not Found / 410 Gone) wird gelöscht.
+// Transiente Fehler (429/500/Timeout) dürfen ein gültiges Abo NICHT entfernen.
+function isGone(reason: unknown): boolean {
+  const sc = (reason as { statusCode?: number } | null)?.statusCode;
+  return sc === 404 || sc === 410;
+}
 
-  const payload = JSON.stringify({ title, body, icon: "/icon.png" });
-
-  const results = await Promise.allSettled(
-    subs.map((s) => webpush.sendNotification(JSON.parse(s.subscription), payload))
-  );
-
-  // Remove expired subscriptions
-  const expiredEndpoints: string[] = [];
-  subs.forEach((s, i) => {
-    const result = results[i];
-    if (result.status === "rejected") {
-      const sub = JSON.parse(s.subscription);
-      expiredEndpoints.push(sub.endpoint);
-    }
-  });
-  if (expiredEndpoints.length > 0) {
-    const del = db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
-    expiredEndpoints.forEach((ep) => del.run(ep));
+// Abos sicher dekodieren – eine kaputte Zeile darf den ganzen Batch nicht werfen.
+function parseSubs(rows: { endpoint?: string; subscription: string }[]): { endpoint: string; sub: webpush.PushSubscription }[] {
+  const out: { endpoint: string; sub: webpush.PushSubscription }[] = [];
+  for (const r of rows) {
+    try {
+      const sub = JSON.parse(r.subscription) as webpush.PushSubscription;
+      const endpoint = r.endpoint ?? sub.endpoint;
+      if (endpoint) out.push({ endpoint, sub });
+    } catch { /* korrupte Zeile überspringen */ }
   }
+  return out;
+}
+
+async function deliver(items: { endpoint: string; sub: webpush.PushSubscription }[], payload: string): Promise<number> {
+  const db = getDb();
+  const results = await Promise.allSettled(items.map(it => webpush.sendNotification(it.sub, payload)));
+  const del = db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
+  let ok = 0;
+  items.forEach((it, i) => {
+    const r = results[i];
+    if (r.status === "rejected") { if (isGone(r.reason)) del.run(it.endpoint); }
+    else ok++;
+  });
+  return ok;
+}
+
+export async function sendPushNotification(title: string, body: string) {
+  try {
+    initVapid();
+    const db = getDb();
+    const subs = db.prepare("SELECT endpoint, subscription FROM push_subscriptions").all() as { endpoint: string; subscription: string }[];
+    const items = parseSubs(subs);
+    if (items.length === 0) return;
+    await deliver(items, JSON.stringify({ title, body, icon: "/icon.png" }));
+  } catch { /* Push darf den Aufrufer nie zum Absturz bringen */ }
 }
 
 // Gezielte Benachrichtigung: nur an die zugewiesenen Teams + den Sprecher.
@@ -60,53 +78,46 @@ export async function sendTargetedPush(
   title: string,
   body: string,
 ) {
-  const teamIds = targets.teamIds?.filter(Boolean) ?? [];
-  const speakerId = targets.speakerId ?? null;
-  if (teamIds.length === 0 && !speakerId) return;
+  try {
+    const teamIds = targets.teamIds?.filter(Boolean) ?? [];
+    const speakerId = targets.speakerId ?? null;
+    if (teamIds.length === 0 && !speakerId) return;
 
-  initVapid();
-  const db = getDb();
+    initVapid();
+    const db = getDb();
 
-  const conds: string[] = [];
-  const args: (number | string)[] = [];
-  if (teamIds.length > 0) {
-    conds.push(`team_id IN (${teamIds.map(() => "?").join(",")})`);
-    args.push(...teamIds);
-  }
-  if (speakerId) { conds.push("speaker_id = ?"); args.push(speakerId); }
+    const conds: string[] = [];
+    const args: (number | string)[] = [];
+    if (teamIds.length > 0) {
+      conds.push(`team_id IN (${teamIds.map(() => "?").join(",")})`);
+      args.push(...teamIds);
+    }
+    if (speakerId) { conds.push("speaker_id = ?"); args.push(speakerId); }
 
-  const subs = db.prepare(
-    `SELECT endpoint, subscription FROM push_subscriptions WHERE ${conds.join(" OR ")}`
-  ).all(...args) as { endpoint: string; subscription: string }[];
-  if (subs.length === 0) return;
-
-  const payload = JSON.stringify({ title, body, icon: "/icon.png" });
-  const results = await Promise.allSettled(
-    subs.map((s) => webpush.sendNotification(JSON.parse(s.subscription), payload))
-  );
-
-  const del = db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
-  subs.forEach((s, i) => { if (results[i].status === "rejected") del.run(s.endpoint); });
+    const subs = db.prepare(
+      `SELECT endpoint, subscription FROM push_subscriptions WHERE ${conds.join(" OR ")}`
+    ).all(...args) as { endpoint: string; subscription: string }[];
+    const items = parseSubs(subs);
+    if (items.length === 0) return;
+    await deliver(items, JSON.stringify({ title, body, icon: "/icon.png" }));
+  } catch { /* Push darf den Aufrufer nie zum Absturz bringen */ }
 }
 
 // Gezielte App-Push an konkrete Helfer (über deren Push-Abos). Gibt die Anzahl
 // erreichter Geräte zurück.
 export async function sendPushToHelpers(helperIds: number[], title: string, body: string): Promise<number> {
-  const ids = [...new Set((helperIds ?? []).filter(Boolean))];
-  if (ids.length === 0) return 0;
-  initVapid();
-  const db = getDb();
-  const subs = db.prepare(
-    `SELECT endpoint, subscription FROM push_subscriptions WHERE helper_id IN (${ids.map(() => "?").join(",")})`
-  ).all(...ids) as { endpoint: string; subscription: string }[];
-  if (subs.length === 0) return 0;
-
-  const payload = JSON.stringify({ title, body, icon: "/icon.png" });
-  const results = await Promise.allSettled(
-    subs.map((s) => webpush.sendNotification(JSON.parse(s.subscription), payload))
-  );
-  const del = db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
-  let ok = 0;
-  subs.forEach((s, i) => { if (results[i].status === "rejected") del.run(s.endpoint); else ok++; });
-  return ok;
+  try {
+    const ids = [...new Set((helperIds ?? []).filter(Boolean))];
+    if (ids.length === 0) return 0;
+    initVapid();
+    const db = getDb();
+    const subs = db.prepare(
+      `SELECT endpoint, subscription FROM push_subscriptions WHERE helper_id IN (${ids.map(() => "?").join(",")})`
+    ).all(...ids) as { endpoint: string; subscription: string }[];
+    const items = parseSubs(subs);
+    if (items.length === 0) return 0;
+    return await deliver(items, JSON.stringify({ title, body, icon: "/icon.png" }));
+  } catch {
+    return 0;
+  }
 }

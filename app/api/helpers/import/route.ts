@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { getSession, hashPassword } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { sendEmail, generatePassword, credentialsEmailHtml } from "@/lib/email";
+import { encryptSecret } from "@/lib/crypto";
 
 // Flexible Spalten-Erkennung (deutsch + englisch)
 function pick(row: Record<string, unknown>, keys: string[]): string {
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
     } else {
       const password = generatePassword();
       const hash = await hashPassword(password);
-      const r = insert.run(first, last, emailAddr, phone || null, hash, password);
+      const r = insert.run(first, last, emailAddr, phone || null, hash, encryptSecret(password));
       created++;
       const status = await sendEmail({ to: emailAddr, subject: "Willkommen bei EquiPlan – deine Zugangsdaten", html: credentialsEmailHtml(first, emailAddr, password), kind: "credentials", helperId: Number(r.lastInsertRowid) });
       if (status === "sent") mailed++; else mailSkipped++;

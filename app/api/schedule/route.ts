@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, canManageTournament } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { sendTargetedPush } from "@/lib/push";
 import { broadcast } from "@/lib/sse";
@@ -67,6 +67,8 @@ export async function POST(req: NextRequest) {
   const db = getDb();
   const body = await req.json();
   const { tournament_id, date, start_time, end_time, title, phase, pruefungs_id, arena_id, team_ids, speaker_id, notes, helpers_needed, helpers_task } = body;
+
+  if (!canManageTournament(session, tournament_id)) return NextResponse.json({ error: "Kein Zugriff auf dieses Turnier" }, { status: 403 });
 
   let result;
   try {
