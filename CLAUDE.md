@@ -49,7 +49,8 @@ The session `role` is `admin | viewer | team | speaker | helper`. The non-obviou
 - A single `role: "admin"` covers **two** privilege levels, distinguished only by `session.adminTournamentId`:
   - **super-admin** → `adminTournamentId == null` (full access),
   - **show-admin** → `adminTournamentId` set (scoped to one tournament).
-- The frontend merely navigates a show-admin to their tournament — it does **not** enforce scope. **Every tournament-bound mutation must gate with `canManageTournament(session, tournamentId)` from `lib/auth.ts`** (returns false for non-admins, true for super-admin, and only the matching id for a show-admin). This guard is already applied on `tournaments/[id]`, `.../share`, `.../staff`, `schedule` (+`[id]`, +`[id]/delay`), `delays`, and `contacts`. Add it to any new tournament-scoped endpoint; do not rely on `role === "admin"` alone.
+- The frontend merely navigates a show-admin to their tournament — it does **not** enforce scope. **Every tournament-bound mutation must gate with `canManageTournament(session, tournamentId)` from `lib/auth.ts`** (returns false for non-admins, true for super-admin, and only the matching id for a show-admin). This guard is applied on: `tournaments/[id]`, `.../share`, `.../staff`, `schedule` (+`[id]`, +`[id]/delay`), `delays`, `contacts`, `shifts` (+`/assignments`, `/notify`), and `documents` (+`/[id]`). Add it to any new tournament-scoped endpoint; do not rely on `role === "admin"` alone.
+- For **read** endpoints, Show-Admins must also be scoped: either enforce `canManageTournament` or overwrite `tournament_id` with `session.adminTournamentId` before querying (see `schedule/route.ts` GET and `shifts/route.ts` GET for the pattern).
 - Global resources (helpers, teams, speakers, arenas) are intentionally shared across all admins.
 
 ### Auth flow
@@ -71,6 +72,7 @@ The session `role` is `admin | viewer | team | speaker | helper`. The non-obviou
 
 ### Real-time + push
 - Mutations call `broadcast("update", ...)` (`lib/sse.ts`); `page.tsx` and the share board subscribe to `GET /api/events` (SSE) with a 30s fallback poll + refetch on focus/visibility.
+- **`GET /api/events` is intentionally auth-free** — the public share board uses it without a session cookie. Do not add a session check to GET. `POST /api/events` requires admin.
 - **The share board must not reset transient view state on every refresh** — reveal animation runs once (`revealedOnceRef`) and auto-scroll only fires on navigation (`shouldScrollRef`), or the board flickers/jumps every 30s for spectators.
 - `push_subscriptions` store `role/team_id/speaker_id/helper_id`. Use `sendTargetedPush({teamIds, speakerId})` / `sendPushToHelpers(ids)` for scoped delivery (admins are intentionally not notified of their own edits). Senders in `lib/push.ts` **never throw** (so an awaited push can't 500 a committed write) and only delete a subscription on HTTP **404/410**.
 
@@ -111,5 +113,19 @@ function addDays(date, n) {
 
 **Onboarding** — completion stored in `localStorage` as `equiplan-onboarded-v1-<role>`.
 
+## Security patterns
+
+**Error responses** — never expose `e.message` or `String(e)` in API responses. Use a generic string and log the detail server-side:
+```ts
+} catch (e) {
+  console.error("[route name]", e);
+  return NextResponse.json({ error: "Speichern fehlgeschlagen" }, { status: 400 });
+}
+```
+
+**HTML in emails** — `lib/email.ts` exports `escapeHtml` (private) and uses it on all interpolated values. Any new email template must escape user-controlled strings before HTML interpolation. `app/api/contact/route.ts` has its own copy for the same reason.
+
+**Auth rate limiting** — `POST /api/auth` has an in-memory rate limiter (10 failed attempts / 15 min per IP). It resets on process restart. `recordFailure(ip)` must be called before every `401` response; successes do not reset the counter.
+
 ## Environment variables
-`JWT_SECRET` (sessions + the helper-password encryption key — keep stable), `DB_DIR` (Railway volume path), `RESEND_API_KEY` / `RESEND_FROM`, `DEEPL_API_KEY`, `APP_URL`, and optional `HELPER_PW_SECRET` (overrides the encryption key source).
+`JWT_SECRET` (sessions + helper-password encryption key — **required in production**, throws on startup if missing; keep stable or encrypted helper passwords become unreadable), `DB_DIR` (Railway volume path), `RESEND_API_KEY` / `RESEND_FROM`, `DEEPL_API_KEY`, `APP_URL`, and optional `HELPER_PW_SECRET` (overrides the encryption key source).
