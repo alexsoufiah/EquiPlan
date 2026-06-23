@@ -6,8 +6,34 @@ import { cookies } from "next/headers";
 // Session-Cookie-Optionen: in Produktion zwingend Secure (JWT nie über http senden).
 const COOKIE = { httpOnly: true as const, path: "/", maxAge: 60 * 60 * 24 * 7, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production" };
 
+// In-Memory Rate-Limiter: max. 10 Fehlversuche pro IP innerhalb von 15 Minuten.
+// Reicht für einen Single-Process-Deploy; setzt sich bei jedem Neustart zurück.
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_ATTEMPTS = 10;
+const WINDOW_MS = 15 * 60 * 1000;
+
+function getIp(req: NextRequest): string {
+  return (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim();
+}
+function isRateLimited(ip: string): boolean {
+  const entry = loginAttempts.get(ip);
+  if (!entry || Date.now() > entry.resetAt) return false;
+  return entry.count >= MAX_ATTEMPTS;
+}
+function recordFailure(ip: string): void {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+  else entry.count++;
+}
+
 export async function POST(req: NextRequest) {
   await initDefaultPasswords();
+  const ip = getIp(req);
+  if (isRateLimited(ip)) {
+    return NextResponse.json({ error: "Zu viele Versuche. Bitte in 15 Minuten erneut versuchen." }, { status: 429, headers: { "Retry-After": "900" } });
+  }
+
   const { password, email } = await req.json();
   const { viewerHash, adminHash } = getPasswords();
   const db = getDb();
@@ -22,6 +48,7 @@ export async function POST(req: NextRequest) {
       (await cookies()).set("session", token, COOKIE);
       return NextResponse.json({ role: "helper", helperId: helper.id, helperName: name });
     }
+    recordFailure(ip);
     return NextResponse.json({ error: "E-Mail oder Passwort falsch" }, { status: 401 });
   }
 
@@ -72,6 +99,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  recordFailure(ip);
   return NextResponse.json({ error: "Falsches Passwort" }, { status: 401 });
 }
 

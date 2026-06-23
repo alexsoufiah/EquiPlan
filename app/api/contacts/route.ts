@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession, canManageTournament } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 
-// GET ?tournament_id=  -> Telefonliste (alle eingeloggten Rollen dürfen lesen)
+// GET ?tournament_id= -> Telefonliste (nur Admins, tournament_id erforderlich)
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const tournamentId = new URL(req.url).searchParams.get("tournament_id");
-  const db = getDb();
-  const rows = tournamentId
-    ? db.prepare("SELECT * FROM contacts WHERE tournament_id = ? ORDER BY sort_order, name").all(Number(tournamentId))
-    : db.prepare("SELECT * FROM contacts ORDER BY sort_order, name").all();
+  if (!tournamentId) return NextResponse.json({ error: "tournament_id fehlt" }, { status: 400 });
+  if (!canManageTournament(session, tournamentId)) return NextResponse.json({ error: "Kein Zugriff auf dieses Turnier" }, { status: 403 });
+  const rows = getDb().prepare("SELECT * FROM contacts WHERE tournament_id = ? ORDER BY sort_order, name").all(Number(tournamentId));
   return NextResponse.json(rows);
 }
 

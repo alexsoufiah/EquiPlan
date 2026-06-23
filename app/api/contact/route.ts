@@ -14,9 +14,17 @@ function ensureTable() {
   )`);
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 async function sendEmail(name: string, email: string, message: string) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return; // Kein API-Key gesetzt → still überspringen
+
+  const n = escapeHtml(name);
+  const em = escapeHtml(email);
+  const msg = escapeHtml(message);
 
   await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -27,12 +35,12 @@ async function sendEmail(name: string, email: string, message: string) {
     body: JSON.stringify({
       from: "EquiPlan <onboarding@resend.dev>",
       to: [NOTIFY_EMAIL],
-      subject: `Neue Anfrage von ${name}`,
+      subject: `Neue Anfrage von ${n}`,
       html: `
         <h2>Neue Kontaktanfrage über EquiPlan</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>E-Mail:</strong> <a href="mailto:${email}">${email}</a></p>
-        <p><strong>Nachricht:</strong><br>${message || "—"}</p>
+        <p><strong>Name:</strong> ${n}</p>
+        <p><strong>E-Mail:</strong> <a href="mailto:${em}">${em}</a></p>
+        <p><strong>Nachricht:</strong><br>${msg || "—"}</p>
         <hr>
         <p style="color:#888;font-size:12px">Gesendet über equiplan-production.up.railway.app</p>
       `,

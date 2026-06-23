@@ -60,8 +60,13 @@ export function generatePassword(len = 10): string {
 
 const APP_URL = process.env.APP_URL || "https://equiplan-production.up.railway.app";
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 // HTML für die Zugangsdaten-E-Mail an einen neuen Helfer.
 export function credentialsEmailHtml(firstName: string, email: string, password: string): string {
+  firstName = escapeHtml(firstName); email = escapeHtml(email); password = escapeHtml(password);
   return `
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1f2937">
       <h2 style="color:#4f46e5">Willkommen bei EquiPlan, ${firstName}!</h2>
@@ -81,16 +86,17 @@ export function credentialsEmailHtml(firstName: string, email: string, password:
 export function shiftEmailHtml(opts: {
   firstName: string; event: string; task: string; date: string; time: string; responsible: string; teamName: string;
 }): string {
+  const e = (s: string) => escapeHtml(s);
   return `
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1f2937">
-      <h2 style="color:#4f46e5">Neue Einteilung für dich, ${opts.firstName}</h2>
-      <p>Dein Team <strong>${opts.teamName}</strong> wurde für eine Schicht/Aufgabe eingeteilt:</p>
+      <h2 style="color:#4f46e5">Neue Einteilung für dich, ${e(opts.firstName)}</h2>
+      <p>Dein Team <strong>${e(opts.teamName)}</strong> wurde für eine Schicht/Aufgabe eingeteilt:</p>
       <table style="border-collapse:collapse;margin:16px 0">
-        <tr><td style="padding:6px 12px;color:#6b7280">Veranstaltung</td><td style="padding:6px 12px;font-weight:bold">${opts.event || "—"}</td></tr>
-        <tr><td style="padding:6px 12px;color:#6b7280">Aufgabe / Schicht</td><td style="padding:6px 12px;font-weight:bold">${opts.task}</td></tr>
-        <tr><td style="padding:6px 12px;color:#6b7280">Datum</td><td style="padding:6px 12px;font-weight:bold">${opts.date}</td></tr>
-        <tr><td style="padding:6px 12px;color:#6b7280">Uhrzeit</td><td style="padding:6px 12px;font-weight:bold">${opts.time}</td></tr>
-        <tr><td style="padding:6px 12px;color:#6b7280">Ansprechpartner</td><td style="padding:6px 12px;font-weight:bold">${opts.responsible || "—"}</td></tr>
+        <tr><td style="padding:6px 12px;color:#6b7280">Veranstaltung</td><td style="padding:6px 12px;font-weight:bold">${opts.event ? e(opts.event) : "—"}</td></tr>
+        <tr><td style="padding:6px 12px;color:#6b7280">Aufgabe / Schicht</td><td style="padding:6px 12px;font-weight:bold">${e(opts.task)}</td></tr>
+        <tr><td style="padding:6px 12px;color:#6b7280">Datum</td><td style="padding:6px 12px;font-weight:bold">${e(opts.date)}</td></tr>
+        <tr><td style="padding:6px 12px;color:#6b7280">Uhrzeit</td><td style="padding:6px 12px;font-weight:bold">${e(opts.time)}</td></tr>
+        <tr><td style="padding:6px 12px;color:#6b7280">Ansprechpartner</td><td style="padding:6px 12px;font-weight:bold">${opts.responsible ? e(opts.responsible) : "—"}</td></tr>
       </table>
       <p><a href="${APP_URL}" style="background:#4f46e5;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">Zum Zeitplan →</a></p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">

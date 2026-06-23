@@ -49,10 +49,17 @@ export async function GET(req: NextRequest) {
   const date = searchParams.get("date");
   const tournamentId = searchParams.get("tournament_id");
 
+  // Show-Admins dürfen nur ihren eigenen Turnier-Scope lesen.
+  // Der angeforderte tournament_id-Parameter wird ignoriert und durch den session-Scope ersetzt.
+  const effectiveTournamentId =
+    session.role === "admin" && session.adminTournamentId != null
+      ? String(session.adminTournamentId)
+      : tournamentId;
+
   let query = ENTRY_QUERY + " WHERE 1=1";
   const args: (string | number)[] = [];
 
-  if (tournamentId) { query += " AND e.tournament_id = ?"; args.push(Number(tournamentId)); }
+  if (effectiveTournamentId) { query += " AND e.tournament_id = ?"; args.push(Number(effectiveTournamentId)); }
   if (date) { query += " AND e.date = ?"; args.push(date); }
   query += " ORDER BY e.date, e.start_time";
 

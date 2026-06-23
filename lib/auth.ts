@@ -4,8 +4,15 @@ import { getDb } from "./db";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 
+const rawSecret = process.env.JWT_SECRET;
+if (!rawSecret) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET muss in Produktion gesetzt sein");
+  }
+  console.warn("[auth] JWT_SECRET nicht gesetzt — unsicherer Dev-Fallback aktiv");
+}
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "pferdeplan-secret-key-change-in-production"
+  rawSecret ?? "pferdeplan-secret-key-change-in-production"
 );
 
 export type UserRole = "admin" | "viewer" | "team" | "speaker" | "helper";

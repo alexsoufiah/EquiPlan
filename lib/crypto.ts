@@ -5,10 +5,15 @@ import crypto from "crypto";
 // sind die Werte ohne den Schlüssel nicht lesbar. Rückwärtskompatibel:
 // Werte ohne PREFIX gelten als Alt-Klartext und werden unverändert zurückgegeben.
 
-const SECRET =
-  process.env.HELPER_PW_SECRET ||
-  process.env.JWT_SECRET ||
-  "pferdeplan-secret-key-change-in-production";
+const rawCryptoSecret =
+  process.env.HELPER_PW_SECRET || process.env.JWT_SECRET;
+if (!rawCryptoSecret) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("HELPER_PW_SECRET oder JWT_SECRET muss in Produktion gesetzt sein");
+  }
+  console.warn("[crypto] Kein Secret gesetzt — unsicherer Dev-Fallback aktiv");
+}
+const SECRET = rawCryptoSecret ?? "pferdeplan-secret-key-change-in-production";
 
 const KEY = crypto.createHash("sha256").update(SECRET).digest(); // 32 Byte
 const PREFIX = "enc:v1:";

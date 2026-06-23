@@ -5,10 +5,19 @@ import { broadcast } from "@/lib/sse";
 
 // GET ?tournament_id=&date=  -> [{ arena_id, minutes }]
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const tournamentId = Number(searchParams.get("tournament_id"));
   const date = searchParams.get("date");
   if (!tournamentId || !date) return NextResponse.json([]);
+
+  // Show-Admins nur auf ihr Turnier beschränken
+  if (session.role === "admin" && session.adminTournamentId != null && session.adminTournamentId !== tournamentId) {
+    return NextResponse.json({ error: "Kein Zugriff auf dieses Turnier" }, { status: 403 });
+  }
+
   const db = getDb();
   const rows = db.prepare(
     "SELECT arena_id, minutes FROM arena_delays WHERE tournament_id = ? AND date = ? AND minutes <> 0"
