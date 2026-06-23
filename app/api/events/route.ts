@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { addClient, removeClient, broadcast } from "@/lib/sse";
+import { verifySession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -48,8 +49,10 @@ export async function GET() {
   });
 }
 
-// Internal trigger endpoint — called server-side via fetch when data changes
-export async function POST() {
+// Internal trigger endpoint — nur für eingeloggte Admins
+export async function POST(req: NextRequest) {
+  const session = await verifySession(req);
+  if (session?.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   broadcast("update", { ts: Date.now() });
   return NextResponse.json({ ok: true, clients: 0 });
 }

@@ -106,7 +106,8 @@ export async function POST(req: NextRequest) {
         results.push({ pruefungs_id: item.pruefungs_id, action: "created", id: Number(r.lastInsertRowid) });
       }
     } catch (e) {
-      errors.push({ pruefungs_id: item.pruefungs_id, error: String(e) });
+      console.error("[import]", item.pruefungs_id, e);
+      errors.push({ pruefungs_id: item.pruefungs_id, error: "Import fehlgeschlagen" });
     }
   }
 

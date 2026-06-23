@@ -3,6 +3,8 @@ import { getSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 
 export async function GET() {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const db = getDb();
   const custom = db.prepare("SELECT * FROM custom_phases ORDER BY created_at ASC").all();
   // Load standard phase color overrides from settings

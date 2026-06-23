@@ -57,7 +57,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     `).run(tournament_id || null, date, start_time, end_time, title, phase, pruefungs_id || null, arena_id || null, speaker_id || null, notes || null, helpers_needed || 0, helpers_task || null, id);
     setTeams(db, id, Array.isArray(team_ids) ? team_ids : []);
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Speichern fehlgeschlagen" }, { status: 400 });
+    console.error("[schedule PUT]", e);
+    return NextResponse.json({ error: "Speichern fehlgeschlagen" }, { status: 400 });
   }
 
   db.prepare("INSERT INTO change_log (action, entry_id, description) VALUES (?, ?, ?)").run(
