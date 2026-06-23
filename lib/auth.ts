@@ -4,16 +4,21 @@ import { getDb } from "./db";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 
-const rawSecret = process.env.JWT_SECRET;
-if (!rawSecret) {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET muss in Produktion gesetzt sein");
+// Secret erst bei Bedarf (Laufzeit) lesen – NICHT auf Modulebene, sonst wirft
+// `next build` beim Auswerten der Module (Build-Env hat kein JWT_SECRET).
+let cachedJwtSecret: Uint8Array | null = null;
+function jwtSecret(): Uint8Array {
+  if (cachedJwtSecret) return cachedJwtSecret;
+  const raw = process.env.JWT_SECRET;
+  if (!raw) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("JWT_SECRET muss in Produktion gesetzt sein");
+    }
+    console.warn("[auth] JWT_SECRET nicht gesetzt — unsicherer Dev-Fallback aktiv");
   }
-  console.warn("[auth] JWT_SECRET nicht gesetzt — unsicherer Dev-Fallback aktiv");
+  cachedJwtSecret = new TextEncoder().encode(raw ?? "pferdeplan-secret-key-change-in-production");
+  return cachedJwtSecret;
 }
-const JWT_SECRET = new TextEncoder().encode(
-  rawSecret ?? "pferdeplan-secret-key-change-in-production"
-);
 
 export type UserRole = "admin" | "viewer" | "team" | "speaker" | "helper";
 
@@ -53,12 +58,12 @@ export async function createToken(session: Session): Promise<string> {
   return new SignJWT({ ...session })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
-    .sign(JWT_SECRET);
+    .sign(jwtSecret());
 }
 
 export async function verifyToken(token: string): Promise<Session | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, jwtSecret());
     return {
       role: payload.role as UserRole,
       teamId: payload.teamId as number | undefined,

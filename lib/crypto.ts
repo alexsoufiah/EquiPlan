@@ -5,22 +5,27 @@ import crypto from "crypto";
 // sind die Werte ohne den Schlüssel nicht lesbar. Rückwärtskompatibel:
 // Werte ohne PREFIX gelten als Alt-Klartext und werden unverändert zurückgegeben.
 
-const rawCryptoSecret =
-  process.env.HELPER_PW_SECRET || process.env.JWT_SECRET;
-if (!rawCryptoSecret) {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("HELPER_PW_SECRET oder JWT_SECRET muss in Produktion gesetzt sein");
-  }
-  console.warn("[crypto] Kein Secret gesetzt — unsicherer Dev-Fallback aktiv");
-}
-const SECRET = rawCryptoSecret ?? "pferdeplan-secret-key-change-in-production";
-
-const KEY = crypto.createHash("sha256").update(SECRET).digest(); // 32 Byte
 const PREFIX = "enc:v1:";
+
+// Schlüssel erst bei Bedarf (Laufzeit) ableiten – NICHT auf Modulebene, sonst
+// wirft `next build` beim Auswerten der Module (Build-Env hat kein Secret).
+let cachedKey: Buffer | null = null;
+function cryptoKey(): Buffer {
+  if (cachedKey) return cachedKey;
+  const raw = process.env.HELPER_PW_SECRET || process.env.JWT_SECRET;
+  if (!raw) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("HELPER_PW_SECRET oder JWT_SECRET muss in Produktion gesetzt sein");
+    }
+    console.warn("[crypto] Kein Secret gesetzt — unsicherer Dev-Fallback aktiv");
+  }
+  cachedKey = crypto.createHash("sha256").update(raw ?? "pferdeplan-secret-key-change-in-production").digest(); // 32 Byte
+  return cachedKey;
+}
 
 export function encryptSecret(plain: string): string {
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", KEY, iv);
+  const cipher = crypto.createCipheriv("aes-256-gcm", cryptoKey(), iv);
   const ct = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
   return PREFIX + Buffer.concat([iv, tag, ct]).toString("base64");
@@ -34,7 +39,7 @@ export function decryptSecret(stored: string | null | undefined): string | null 
     const iv = raw.subarray(0, 12);
     const tag = raw.subarray(12, 28);
     const ct = raw.subarray(28);
-    const decipher = crypto.createDecipheriv("aes-256-gcm", KEY, iv);
+    const decipher = crypto.createDecipheriv("aes-256-gcm", cryptoKey(), iv);
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
   } catch {
