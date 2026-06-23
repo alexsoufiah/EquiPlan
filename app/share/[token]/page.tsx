@@ -375,7 +375,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     <div className="fixed inset-0 bg-gray-950 text-white flex flex-col overflow-hidden">
 
       {/* ── Header (immer oben fix) ── */}
-      <header className="bg-gradient-to-r from-indigo-900 via-violet-900 to-indigo-900 border-b border-white/15 shrink-0 z-30 backdrop-blur safe-top">
+      <header className="bg-violet-950/70 border-b border-white/10 shrink-0 z-30 backdrop-blur-xl backdrop-saturate-150 safe-top">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
           <img src="/logo.png" alt="EquiPlan" className="w-8 h-8 object-contain opacity-90" />
           <div className="flex-1 min-w-0">

@@ -1055,14 +1055,14 @@ export default function App() {
     <PhaseOverridesContext.Provider value={{ overrides: phaseOverrides, setOverrides: setPhaseOverrides }}>
     <CustomPhasesContext.Provider value={customPhasesMap}>
     <DelayContext.Provider value={delays}>
-    <div className="fixed inset-0 flex flex-col bg-gray-50 dark:bg-gray-950 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col bg-[var(--background)] overflow-hidden">
       {showOnboarding && session && (
         <OnboardingOverlay session={session} onDone={() => setShowOnboarding(false)} />
       )}
       {showInfo && activeTournament && (
         <InfoModal tournamentId={activeTournament.id} onClose={() => setShowInfo(false)} />
       )}
-      <header className="shrink-0 bg-gradient-to-r from-indigo-800 to-violet-700 text-white shadow-lg safe-top">
+      <header className="shrink-0 bg-violet-700/85 dark:bg-violet-950/80 backdrop-blur-xl border-b border-white/10 text-white safe-top">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
             {activeTournament.logo_path
