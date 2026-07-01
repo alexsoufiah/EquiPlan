@@ -3240,7 +3240,12 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
         </div>
       )}
 
-      {shifts.map(shift => {
+      {(() => {
+        // Alle Schichten auf einer Seite, nach Tagen gruppiert
+        const groups: Record<string, Shift[]> = {};
+        for (const s of shifts) (groups[s.date] ??= []).push(s);
+        const days = Object.keys(groups).sort();
+        const renderShift = (shift: Shift) => {
         const [sh, sm] = shift.start_time.split(":").map(Number);
         const [eh, em] = shift.end_time.split(":").map(Number);
         const hours = (eh * 60 + em - sh * 60 - sm) / 60;
@@ -3255,7 +3260,6 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
                   <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">
                     {shift.start_time}–{shift.end_time} ({hours % 1 === 0 ? hours : hours.toFixed(1)}h)
                   </span>
-                  <span className="text-xs text-gray-400">{shift.date}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {shift.team_name && <span className="inline-flex items-center gap-1 text-xs bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full"><Icon name="users" size={12} className="shrink-0" /> {shift.team_name}</span>}
@@ -3321,7 +3325,18 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
             )}
           </div>
         );
-      })}
+        };
+        return days.map(d => (
+          <div key={d} className="space-y-2">
+            <div className="flex items-center gap-3 pt-1">
+              <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">{formatDate(d)}</h4>
+              <span className="text-xs text-gray-400 whitespace-nowrap">{groups[d].length} Schicht{groups[d].length === 1 ? "" : "en"}</span>
+              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+            </div>
+            {groups[d].map(renderShift)}
+          </div>
+        ));
+      })()}
     </div>
   );
 }
