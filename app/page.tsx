@@ -874,6 +874,105 @@ function EntryDetailModal({ entry, session, onClose }: { entry: ScheduleEntry; s
 interface AppSession { role: string; teamId?: number; teamName?: string; speakerId?: number; speakerName?: string; speakerRole?: string; speakerColor?: string; adminName?: string; adminTournamentId?: number; helperId?: number; helperName?: string; }
 type AppView = "tournament-select" | "schedule" | "admin";
 
+// ── Helfer-Startseite: „Meine Einsätze" (wo bin ich, welche Rolle, wann) ──────
+interface HelperAssignment {
+  id: number; role?: string | null; notes?: string | null; attended: number;
+  shift_id: number; date: string; start_time: string; end_time: string; task: string; shift_notes?: string | null;
+  tournament_id?: number | null; tournament_name?: string | null;
+}
+
+function HelperHome({ session, onLogout }: { session: AppSession; onLogout: () => void }) {
+  const { theme, toggle: toggleTheme } = useTheme();
+  const [items, setItems] = useState<HelperAssignment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await fetch("/api/helpers/me/assignments");
+    if (r.ok) setItems(await r.json());
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  // Live-Aktualisierung: sofort bei Plan-Änderung, plus bei Fokus/Sichtbarkeit
+  useEffect(() => {
+    let es: EventSource | null = null;
+    try { es = new EventSource("/api/events"); es.addEventListener("update", () => load()); } catch { /* SSE nicht verfügbar */ }
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    return () => { es?.close(); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", onVis); };
+  }, [load]);
+
+  const byDate: Record<string, HelperAssignment[]> = {};
+  for (const it of items) { (byDate[it.date] ??= []).push(it); }
+  const dates = Object.keys(byDate).sort();
+
+  return (
+    <div className="fixed inset-0 flex flex-col bg-[var(--background)] overflow-hidden">
+      <header className="shrink-0 bg-violet-700/85 dark:bg-violet-950/80 backdrop-blur-xl border-b border-white/10 text-white safe-top">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <img src="/logo.png" alt="EquiPlan" className="w-9 h-9 object-contain rounded-lg bg-white/10 p-0.5 shrink-0" />
+            <div className="min-w-0">
+              <h1 className="font-bold text-lg leading-tight tracking-tight" data-no-translate><span className="text-white">Equi</span><span className="text-violet-300">Plan</span></h1>
+              <p className="inline-flex items-center gap-1 text-xs text-indigo-200"><Icon name="hand" size={11} className="shrink-0" /> {session.helperName}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={load} className="p-2 rounded-lg hover:bg-white/15 transition active:scale-90" title="Aktualisieren" aria-label="Aktualisieren"><RefreshCw size={18} className={loading ? "animate-spin" : ""} /></button>
+            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-white/15 transition active:scale-90" aria-label="Design umschalten">{theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}</button>
+            <button onClick={onLogout} className="p-2 rounded-lg hover:bg-white/15 transition active:scale-90" title="Abmelden" aria-label="Abmelden"><LogOut size={18} /></button>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+          <div>
+            <h2 className="inline-flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-gray-100"><Icon name="clipboard" size={20} className="text-violet-500" /> Meine Einsätze</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Deine Schichten, Rollen und Zeiten – aktualisiert sich automatisch.</p>
+          </div>
+
+          {loading && items.length === 0 ? (
+            <p className="text-gray-400 text-sm">Laden…</p>
+          ) : items.length === 0 ? (
+            <div className="text-center py-16 text-gray-400 eq-fade-up">
+              <div className="mx-auto mb-3 grid place-items-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"><Icon name="clipboard" size={30} /></div>
+              <p>Noch keine Einsätze eingeteilt.</p>
+              <p className="text-sm mt-1">Du wirst benachrichtigt, sobald du eingeteilt wirst.</p>
+            </div>
+          ) : dates.map((d, di) => (
+            <div key={d} className="eq-fade-up" style={{ "--i": Math.min(di, 12) } as React.CSSProperties}>
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">{formatDate(d)}</h3>
+              <div className="space-y-2">
+                {byDate[d].slice().sort((a, b) => a.start_time.localeCompare(b.start_time)).map(it => (
+                  <div key={it.id} className="eq-surface p-3.5 flex items-start gap-3">
+                    <div className="shrink-0 text-center w-16">
+                      <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-100">{it.start_time}</p>
+                      <p className="text-xs font-mono text-gray-400">{it.end_time}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 dark:text-gray-100 break-words">{it.task}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        {it.role
+                          ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300">{it.role}</span>
+                          : <span className="text-xs text-gray-400">Rolle folgt</span>}
+                        {it.tournament_name && <span className="text-xs text-gray-400">{it.tournament_name}</span>}
+                      </div>
+                      {(it.notes || it.shift_notes) && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic break-words">{it.notes || it.shift_notes}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme();
   const { lang, setLang } = useLang();
@@ -1046,6 +1145,7 @@ export default function App() {
 
   if (checking) return <div className="min-h-screen flex items-center justify-center"><div className="text-gray-400 text-lg">Laden...</div></div>;
   if (!session) return <LoginForm onLogin={handleLogin} />;
+  if (session.role === "helper") return <HelperHome session={session} onLogout={handleLogout} />;
 
   if (view === "tournament-select" || !activeTournament) {
     return <TournamentSelect tournaments={tournaments} session={session} onSelect={t => { if (t.start_date) setSelectedDate(t.start_date); setActiveTournament(t); }} onLogout={handleLogout} onCreated={loadTournaments} />;
@@ -2800,8 +2900,11 @@ interface Shift {
   assignments: ShiftAssignment[];
 }
 interface ShiftAssignment {
-  id: number; shift_id: number; worker_name: string; helper_id?: number | null; attended: number; notes?: string;
+  id: number; shift_id: number; worker_name: string; helper_id?: number | null; attended: number; notes?: string; role?: string | null;
 }
+
+// Arbeitsrollen für Schicht-Zuweisungen (pro Person/Schicht wählbar)
+const SHIFT_ROLES = ["Protokoll", "Einlass", "Tafel", "Abreiteplätze", "Springer", "Ersatz", "Shadow", "Vorbereitung", "Sonstiges"];
 
 function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tournament?: Tournament | null }) {
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -2809,6 +2912,7 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
   const [editShift, setEditShift] = useState<Partial<Shift> | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [newHelper, setNewHelper] = useState<{ [shiftId: number]: string }>({});
+  const [newRole, setNewRole] = useState<{ [shiftId: number]: string }>({});
   const [view, setView] = useState<"shifts" | "report">("shifts");
   const [allHelpers, setAllHelpers] = useState<Helper[]>([]);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
@@ -2862,10 +2966,19 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
     if (!helperId) return;
     const res = await fetch("/api/shifts/assignments", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shift_id: shiftId, helper_id: Number(helperId) }),
+      body: JSON.stringify({ shift_id: shiftId, helper_id: Number(helperId), role: newRole[shiftId] || null }),
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); showFlash(d.error || "Zuweisung fehlgeschlagen"); return; }
     setNewHelper(v => ({ ...v, [shiftId]: "" }));
+    load();
+  }
+
+  // Rolle einer bestehenden Zuweisung ändern (inline)
+  async function setAssignmentRole(a: ShiftAssignment, role: string) {
+    await fetch("/api/shifts/assignments", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: a.id, role: role || null }),
+    });
     load();
   }
 
@@ -2902,16 +3015,16 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
     import("xlsx").then(XLSX => {
       const tournamentHeader = tournament?.name ? [[tournament.name + " – Schichtplan EquiPlan"], [""]] : [];
       // Sheet 1: Schichten-Detail
-      const detailRows: any[] = [...tournamentHeader, ["Datum", "Aufgabe", "Von", "Bis", "Stunden", "Mitarbeiter", "Anwesend", "Notizen"]];
+      const detailRows: any[] = [...tournamentHeader, ["Datum", "Aufgabe", "Von", "Bis", "Stunden", "Mitarbeiter", "Rolle", "Anwesend", "Notizen"]];
       for (const s of shifts) {
         const [sh, sm] = s.start_time.split(":").map(Number);
         const [eh, em] = s.end_time.split(":").map(Number);
         const h = (eh * 60 + em - sh * 60 - sm) / 60;
         if (s.assignments.length === 0) {
-          detailRows.push([s.date, s.task, s.start_time, s.end_time, h, "—", "—", s.notes ?? ""]);
+          detailRows.push([s.date, s.task, s.start_time, s.end_time, h, "—", "—", "—", s.notes ?? ""]);
         } else {
           for (const a of s.assignments) {
-            detailRows.push([s.date, s.task, s.start_time, s.end_time, h, a.worker_name, a.attended === 1 ? "Ja" : "Nein", s.notes ?? ""]);
+            detailRows.push([s.date, s.task, s.start_time, s.end_time, h, a.worker_name, a.role ?? "", a.attended === 1 ? "Ja" : "Nein", s.notes ?? ""]);
           }
         }
       }
@@ -3026,22 +3139,22 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
 
       autoTable(doc, {
         startY: afterSummary + 4,
-        head: [["Datum", "Aufgabe", "Von–Bis", "Mitarbeiter", "Anwesend"]],
+        head: [["Datum", "Aufgabe", "Von–Bis", "Mitarbeiter", "Rolle", "Anwesend"]],
         body: shifts.flatMap(s => {
           const [sh, sm] = s.start_time.split(":").map(Number);
           const [eh, em] = s.end_time.split(":").map(Number);
           const h = (eh * 60 + em - sh * 60 - sm) / 60;
-          if (s.assignments.length === 0) return [[s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, "—", "—"]];
-          return s.assignments.map(a => [s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, a.worker_name, a.attended === 1 ? "Ja" : "Nein"]);
+          if (s.assignments.length === 0) return [[s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, "—", "—", "—"]];
+          return s.assignments.map(a => [s.date, s.task, `${s.start_time}–${s.end_time} (${h}h)`, a.worker_name, a.role ?? "", a.attended === 1 ? "Ja" : "Nein"]);
         }),
         headStyles: { fillColor: [55, 48, 163], textColor: 255, fontStyle: "bold" },
         alternateRowStyles: { fillColor: [238, 242, 255] },
         didParseCell: (data: any) => {
-          if (data.column.index === 4 && data.cell.raw === "Ja") {
+          if (data.column.index === 5 && data.cell.raw === "Ja") {
             data.cell.styles.textColor = [22, 163, 74];
             data.cell.styles.fontStyle = "bold";
           }
-          if (data.column.index === 4 && data.cell.raw === "Nein") {
+          if (data.column.index === 5 && data.cell.raw === "Nein") {
             data.cell.styles.textColor = [185, 28, 28];
           }
         },
@@ -3169,24 +3282,36 @@ function ShiftsTab({ tournamentId, tournament }: { tournamentId?: number; tourna
                       className={`w-6 h-6 rounded-full border-2 grid place-items-center shrink-0 transition active:scale-90 ${a.attended === 1 ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"}`}>
                       {a.attended === 1 && <Icon name="check" size={14} strokeWidth={3} className="eq-draw" />}
                     </button>
-                    <span className={`flex-1 text-sm ${a.attended === 1 ? "text-gray-800 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"}`}>{a.worker_name}</span>
-                    {a.notes && <span className="text-xs text-gray-400 italic">{a.notes}</span>}
-                    <button onClick={() => removeWorker(a.id)} aria-label="Entfernen" className="grid place-items-center w-6 h-6 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition active:scale-90"><Icon name="x" size={14} /></button>
+                    <span className={`flex-1 min-w-0 truncate text-sm ${a.attended === 1 ? "text-gray-800 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"}`}>{a.worker_name}</span>
+                    <select value={a.role ?? ""} onChange={e => setAssignmentRole(a, e.target.value)}
+                      className={`text-xs rounded-md border px-1.5 py-1 shrink-0 ${a.role ? "border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-medium" : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-400"}`}>
+                      <option value="">Rolle…</option>
+                      {SHIFT_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <button onClick={() => removeWorker(a.id)} aria-label="Entfernen" className="grid place-items-center w-6 h-6 rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition active:scale-90 shrink-0"><Icon name="x" size={14} /></button>
                   </div>
                 ))}
                 {(() => {
                   const assignedIds = new Set(shift.assignments.map(a => a.helper_id).filter(Boolean));
                   const available = allHelpers.filter(h => !assignedIds.has(h.id));
                   return (
-                    <div className="flex gap-2 mt-2">
+                    <div className="flex gap-2 mt-2 flex-wrap">
                       <select
                         value={newHelper[shift.id] ?? ""}
                         onChange={e => setNewHelper(v => ({ ...v, [shift.id]: e.target.value }))}
-                        className={inputClass + " text-sm py-1.5 flex-1"}
+                        className={inputClass + " text-sm py-1.5 flex-1 min-w-[140px]"}
                         disabled={allHelpers.length === 0}
                       >
                         <option value="">{allHelpers.length === 0 ? "Keine Helfer angelegt" : "Helfer auswählen…"}</option>
                         {available.map(h => <option key={h.id} value={h.id}>{h.first_name} {h.last_name}</option>)}
+                      </select>
+                      <select
+                        value={newRole[shift.id] ?? ""}
+                        onChange={e => setNewRole(v => ({ ...v, [shift.id]: e.target.value }))}
+                        className={inputClass + " text-sm py-1.5 w-auto shrink-0"}
+                      >
+                        <option value="">Rolle…</option>
+                        {SHIFT_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
                       <button onClick={() => addHelper(shift.id)} disabled={!newHelper[shift.id]} className="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50 transition active:scale-95"><Icon name="plus" size={15} /> Zuweisen</button>
                     </div>

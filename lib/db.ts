@@ -282,6 +282,8 @@ function initSchema(db: Database.Database) {
   // Helfer-Bezug auf Schicht-Zuweisungen (Dropdown statt Freitext)
   const saCols = (db.prepare("PRAGMA table_info(shift_assignments)").all() as { name: string }[]).map(c => c.name);
   if (!saCols.includes("helper_id")) db.exec("ALTER TABLE shift_assignments ADD COLUMN helper_id INTEGER REFERENCES helpers(id) ON DELETE SET NULL");
+  // Arbeitsrolle je Zuweisung (Protokoll/Einlass/Tafel/…) – kann pro Schicht/Person verschieden sein
+  if (!saCols.includes("role")) db.exec("ALTER TABLE shift_assignments ADD COLUMN role TEXT");
   // Klartext-Passwort, damit Admins die generierten Zugangsdaten ansehen können
   const helperCols = (db.prepare("PRAGMA table_info(helpers)").all() as { name: string }[]).map(c => c.name);
   if (!helperCols.includes("plain_password")) db.exec("ALTER TABLE helpers ADD COLUMN plain_password TEXT");
