@@ -883,18 +883,28 @@ interface HelperAssignment {
 
 function HelperHome({ session, onLogout }: { session: AppSession; onLogout: () => void }) {
   const { theme, toggle: toggleTheme } = useTheme();
-  const [items, setItems] = useState<HelperAssignment[]>([]);
+  const [shifts, setShifts] = useState<HelperAssignment[]>([]);
+  const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onlyMine, setOnlyMine] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const r = await fetch("/api/helpers/me/assignments");
-    if (r.ok) setItems(await r.json());
+    const my: HelperAssignment[] = await fetch("/api/helpers/me/assignments").then(r => r.ok ? r.json() : []).catch(() => []);
+    setShifts(my);
+    // Turnier: aus den eigenen Schichten; sonst (noch nicht eingeteilt) das einzige/erste Turnier
+    let tid = my.find(s => s.tournament_id)?.tournament_id ?? null;
+    if (tid == null) {
+      const ts = await fetch("/api/tournaments").then(r => r.ok ? r.json() : []).catch(() => []);
+      if (Array.isArray(ts) && ts.length) tid = ts[0].id;
+    }
+    const es = tid != null ? await fetch(`/api/schedule?tournament_id=${tid}`).then(r => r.ok ? r.json() : []).catch(() => []) : [];
+    setEntries(Array.isArray(es) ? es : []);
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  // Live-Aktualisierung: sofort bei Plan-Änderung, plus bei Fokus/Sichtbarkeit
+  // Live-Aktualisierung
   useEffect(() => {
     let es: EventSource | null = null;
     try { es = new EventSource("/api/events"); es.addEventListener("update", () => load()); } catch { /* SSE nicht verfügbar */ }
@@ -904,9 +914,14 @@ function HelperHome({ session, onLogout }: { session: AppSession; onLogout: () =
     return () => { es?.close(); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", onVis); };
   }, [load]);
 
-  const byDate: Record<string, HelperAssignment[]> = {};
-  for (const it of items) { (byDate[it.date] ??= []).push(it); }
+  // Eigene Schichten, die einen Programmpunkt zeitlich überlappen = „mein Einsatz"
+  const mineFor = (e: ScheduleEntry) => shifts.filter(s => s.date === e.date && s.start_time < e.end_time && e.start_time < s.end_time);
+  const shortTask = (t: string) => t.split(" · ")[0];
+
+  const byDate: Record<string, ScheduleEntry[]> = {};
+  for (const e of entries) (byDate[e.date] ??= []).push(e);
   const dates = Object.keys(byDate).sort();
+  const mineCount = shifts.length;
 
   return (
     <div className="fixed inset-0 flex flex-col bg-[var(--background)] overflow-hidden">
@@ -929,44 +944,67 @@ function HelperHome({ session, onLogout }: { session: AppSession; onLogout: () =
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-          <div>
-            <h2 className="inline-flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-gray-100"><Icon name="clipboard" size={20} className="text-violet-500" /> Meine Einsätze</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Deine Schichten, Rollen und Zeiten – aktualisiert sich automatisch.</p>
+          <div className="flex items-end justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="inline-flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-gray-100"><Icon name="calendar" size={20} className="text-violet-500" /> Programm</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Deine Einsätze sind <span className="text-violet-600 dark:text-violet-400 font-medium">violett</span> hervorgehoben.</p>
+            </div>
+            <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shrink-0">
+              <button onClick={() => setOnlyMine(false)} className={`px-3 py-1 rounded-md text-sm font-medium transition ${!onlyMine ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400"}`}>Alles</button>
+              <button onClick={() => setOnlyMine(true)} className={`px-3 py-1 rounded-md text-sm font-medium transition ${onlyMine ? "bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm" : "text-gray-500 dark:text-gray-400"}`}>Nur meine{mineCount ? ` (${mineCount})` : ""}</button>
+            </div>
           </div>
 
-          {loading && items.length === 0 ? (
+          {loading && entries.length === 0 ? (
             <p className="text-gray-400 text-sm">Laden…</p>
-          ) : items.length === 0 ? (
+          ) : entries.length === 0 ? (
             <div className="text-center py-16 text-gray-400 eq-fade-up">
-              <div className="mx-auto mb-3 grid place-items-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"><Icon name="clipboard" size={30} /></div>
-              <p>Noch keine Einsätze eingeteilt.</p>
-              <p className="text-sm mt-1">Du wirst benachrichtigt, sobald du eingeteilt wirst.</p>
+              <div className="mx-auto mb-3 grid place-items-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"><Icon name="calendar" size={30} /></div>
+              <p>Noch kein Programm verfügbar.</p>
             </div>
-          ) : dates.map((d, di) => (
-            <div key={d} className="eq-fade-up" style={{ "--i": Math.min(di, 12) } as React.CSSProperties}>
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">{formatDate(d)}</h3>
-              <div className="space-y-2">
-                {byDate[d].slice().sort((a, b) => a.start_time.localeCompare(b.start_time)).map(it => (
-                  <div key={it.id} className="eq-surface p-3.5 flex items-start gap-3">
-                    <div className="shrink-0 text-center w-16">
-                      <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-100">{it.start_time}</p>
-                      <p className="text-xs font-mono text-gray-400">{it.end_time}</p>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 dark:text-gray-100 break-words">{it.task}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        {it.role
-                          ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300">{it.role}</span>
-                          : <span className="text-xs text-gray-400">Rolle folgt</span>}
-                        {it.tournament_name && <span className="text-xs text-gray-400">{it.tournament_name}</span>}
+          ) : dates.map((d, di) => {
+            const dayEntries = byDate[d].slice().sort((a, b) => a.start_time.localeCompare(b.start_time)).map(e => ({ e, mine: mineFor(e) }));
+            const shown = onlyMine ? dayEntries.filter(x => x.mine.length) : dayEntries;
+            if (shown.length === 0) return null;
+            return (
+              <div key={d} className="eq-fade-up" style={{ "--i": Math.min(di, 12) } as React.CSSProperties}>
+                <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">{formatDate(d)}</h3>
+                <div className="space-y-2">
+                  {shown.map(({ e, mine }) => (
+                    <div key={e.id} className={`rounded-2xl p-3.5 flex items-start gap-3 border transition ${mine.length
+                      ? "bg-violet-50 dark:bg-violet-500/10 border-violet-300 dark:border-violet-500/40 ring-1 ring-violet-300/60 dark:ring-violet-500/30"
+                      : "bg-[var(--eq-surface)] border-[var(--eq-border)] opacity-95"}`}>
+                      <div className="shrink-0 text-center w-16">
+                        <p className={`text-sm font-mono font-bold ${mine.length ? "text-violet-700 dark:text-violet-300" : "text-gray-900 dark:text-gray-100"}`}>{e.start_time}</p>
+                        <p className="text-xs font-mono text-gray-400">{e.end_time}</p>
                       </div>
-                      {(it.notes || it.shift_notes) && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic break-words">{it.notes || it.shift_notes}</p>}
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-semibold break-words ${mine.length ? "text-violet-900 dark:text-violet-200" : "text-gray-900 dark:text-gray-100"}`}>
+                          {e.pruefungs_id && <span className="text-gray-400 font-normal text-sm mr-1">{e.pruefungs_id}</span>}{e.title}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                          {e.arena_name && <span className="inline-flex items-center gap-1"><Icon name="mapPin" size={11} className="shrink-0" /> {e.arena_name}</span>}
+                        </div>
+                        {mine.length > 0 && (
+                          <div className="mt-2 space-y-1 border-t border-violet-200/70 dark:border-violet-500/20 pt-2">
+                            <p className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 dark:text-violet-300"><Icon name="hand" size={12} className="shrink-0" /> Dein Einsatz</p>
+                            {mine.slice().sort((a, b) => a.start_time.localeCompare(b.start_time)).map(s => (
+                              <div key={s.id} className="flex flex-wrap items-center gap-2 text-xs">
+                                <span className="font-medium px-2 py-0.5 rounded-full bg-violet-600 text-white">{s.role || "Rolle folgt"}</span>
+                                <span className="font-mono text-violet-700 dark:text-violet-300">{s.start_time}–{s.end_time}</span>
+                                <span className="text-gray-500 dark:text-gray-400">{shortTask(s.task)}</span>
+                                {(s.notes || s.shift_notes) && <span className="text-gray-400 italic">· {s.notes || s.shift_notes}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </main>
     </div>
@@ -3709,6 +3747,29 @@ function HelpersRosterTab() {
     });
   }
 
+  // Login-Export: E-Mail + (entschlüsseltes) Passwort aller Helfer — separater Button,
+  // damit im normalen Helfer-Export keine Passwörter landen.
+  async function exportLogins() {
+    const r = await fetch("/api/helpers/roster/logins");
+    if (!r.ok) { flash("Login-Export fehlgeschlagen", false); return; }
+    const rows: { first_name: string; last_name: string; email: string; password: string | null }[] = await r.json();
+    if (rows.length === 0) return;
+    import("xlsx").then(XLSX => {
+      const aoa: (string)[][] = [["Vorname", "Nachname", "E-Mail", "Passwort"], ...rows.map(h => [h.first_name, h.last_name, h.email, h.password ?? ""])];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws["!cols"] = [{ wch: 16 }, { wch: 18 }, { wch: 30 }, { wch: 16 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Logins");
+      const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `EquiPlan_Helfer_Logins_${today()}.xlsx`;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    });
+  }
+
   const q = search.trim().toLowerCase();
   const filtered = q ? helpers.filter(h => `${h.first_name} ${h.last_name} ${h.email}`.toLowerCase().includes(q)) : helpers;
 
@@ -3723,6 +3784,10 @@ function HelpersRosterTab() {
           <button onClick={exportHelpers} disabled={helpers.length === 0}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-emerald-300 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
             <Icon name="chart" size={15} /> Excel-Export
+          </button>
+          <button onClick={exportLogins} disabled={helpers.length === 0} title="E-Mail + Passwort aller Helfer (vertraulich)"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-amber-300 dark:border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+            <Icon name="key" size={15} /> Logins
           </button>
           <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition active:scale-95 ${importing ? "bg-gray-300 text-gray-500" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
             {importing ? "Importiere…" : <><Icon name="download" size={15} /> Excel-Import</>}
