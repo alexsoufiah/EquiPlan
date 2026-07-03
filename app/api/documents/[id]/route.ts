@@ -8,8 +8,10 @@ const DB_DIR = process.env.DB_DIR ?? path.join(process.cwd(), "data");
 const UPLOAD_DIR = path.join(DB_DIR, "uploads");
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // Dokumente sind (wie die Liste/Upload/Delete in ../route.ts) ausschließlich Admin-Ressourcen.
+  // Ohne diese Sperre könnte jede eingeloggte Rolle jedes PDF per fortlaufender id abrufen.
   const session = await verifySession(req);
-  if (!session) return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+  if (!session || session.role !== "admin") return NextResponse.json({ error: "Nicht autorisiert" }, { status: 403 });
 
   const { id } = await params;
   const db = getDb();
@@ -19,16 +21,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!doc) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-  // Für Admins: Turnier-Scope erzwingen
-  if (session.role === "admin") {
-    let effectiveTournamentId = doc.tournament_id;
-    if (doc.entry_id != null && effectiveTournamentId == null) {
-      const entry = db.prepare("SELECT tournament_id FROM schedule_entries WHERE id = ?").get(doc.entry_id) as { tournament_id: number } | undefined;
-      effectiveTournamentId = entry?.tournament_id ?? null;
-    }
-    if (effectiveTournamentId != null && !canManageTournament(session, effectiveTournamentId)) return NextResponse.json({ error: "Kein Zugriff auf dieses Turnier" }, { status: 403 });
-    if (effectiveTournamentId == null && session.adminTournamentId != null) return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  // Turnier-Scope für Show-Admins erzwingen
+  let effectiveTournamentId = doc.tournament_id;
+  if (doc.entry_id != null && effectiveTournamentId == null) {
+    const entry = db.prepare("SELECT tournament_id FROM schedule_entries WHERE id = ?").get(doc.entry_id) as { tournament_id: number } | undefined;
+    effectiveTournamentId = entry?.tournament_id ?? null;
   }
+  if (effectiveTournamentId != null && !canManageTournament(session, effectiveTournamentId)) return NextResponse.json({ error: "Kein Zugriff auf dieses Turnier" }, { status: 403 });
+  if (effectiveTournamentId == null && session.adminTournamentId != null) return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
 
   try {
     const buffer = await readFile(path.join(UPLOAD_DIR, doc.filename));

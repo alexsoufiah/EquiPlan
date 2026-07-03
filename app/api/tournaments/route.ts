@@ -5,7 +5,11 @@ import { getDb } from "@/lib/db";
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const tournaments = getDb().prepare("SELECT * FROM tournaments ORDER BY start_date DESC, created_at DESC").all();
+  // Keine share_token/staff_token in der Liste — die sind Geheimnisse und werden bei Bedarf
+  // pro Turnier über /api/tournaments/[id] nur an den verwaltenden Admin ausgegeben.
+  const tournaments = getDb().prepare(
+    "SELECT id, name, location, start_date, end_date, logo_path, created_at FROM tournaments ORDER BY start_date DESC, created_at DESC"
+  ).all();
   return NextResponse.json(tournaments);
 }
 

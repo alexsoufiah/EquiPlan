@@ -13,7 +13,17 @@ const MAX_ATTEMPTS = 10;
 const WINDOW_MS = 15 * 60 * 1000;
 
 function getIp(req: NextRequest): string {
-  return (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim();
+  // Nicht die LINKESTE X-Forwarded-For-Adresse nehmen — die ist voll client-kontrolliert
+  // (Proxies hängen HINTEN an), sonst lässt sich der Rate-Limiter durch Header-Rotation aushebeln.
+  // Bevorzugt x-real-ip (vom Edge gesetzt), sonst der letzte (proxy-nächste) XFF-Hop.
+  const realIp = req.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const parts = xff.split(",").map(s => s.trim()).filter(Boolean);
+    if (parts.length) return parts[parts.length - 1];
+  }
+  return "unknown";
 }
 function isRateLimited(ip: string): boolean {
   const entry = loginAttempts.get(ip);
@@ -110,7 +120,12 @@ export async function DELETE() {
 
 export async function PATCH(req: NextRequest) {
   const session = await getSession();
-  if (session?.role !== "admin") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  // Nur Super-Admin: die globalen admin_password/viewer_password sind turnier-übergreifend.
+  // Ein Show-Admin dürfte sich sonst ein neues admin_password setzen und sich per Legacy-Login
+  // zum Super-Admin eskalieren.
+  if (!(session?.role === "admin" && session.adminTournamentId == null)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
 
   const { viewerPassword, adminPassword } = await req.json();
   const db = getDb();

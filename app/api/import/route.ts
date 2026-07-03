@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { getDb } from "@/lib/db";
 import { sendPushNotification } from "@/lib/push";
 
@@ -8,7 +9,8 @@ function checkApiKey(req: NextRequest): boolean {
   const stored = (db.prepare("SELECT value FROM settings WHERE key = 'api_key'").get() as { value: string } | undefined)?.value;
   if (!stored) return false;
   const provided = req.headers.get("x-api-key") ?? req.nextUrl.searchParams.get("api_key");
-  return provided === stored;
+  if (!provided || provided.length !== stored.length) return false; // Längen-Guard: timingSafeEqual wirft sonst
+  return crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(stored)); // konstante Zeit statt ===
 }
 
 /**

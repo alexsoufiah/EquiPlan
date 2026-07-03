@@ -6,8 +6,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const t = getDb().prepare("SELECT id, name, location, start_date, end_date, share_token, staff_token, logo_path FROM tournaments WHERE id = ?").get(id);
+  const t = getDb().prepare("SELECT id, name, location, start_date, end_date, share_token, staff_token, logo_path FROM tournaments WHERE id = ?").get(id) as
+    | { id: number; name: string; location: string | null; start_date: string | null; end_date: string | null; share_token: string | null; staff_token: string | null; logo_path: string | null }
+    | undefined;
   if (!t) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Die Board-Tokens (share/staff) sind Zugangs-Geheimnisse — nur der verwaltende Admin
+  // bekommt sie. Andere Rollen könnten sonst den internen Staff-Board-Token (inkl. Telefonliste) abgreifen.
+  if (!canManageTournament(session, id)) {
+    const { share_token: _s, staff_token: _st, ...safe } = t;
+    void _s; void _st;
+    return NextResponse.json(safe);
+  }
   return NextResponse.json(t);
 }
 
